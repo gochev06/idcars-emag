@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="container mt-5">
+  <h1>Dashboard</h1>
+  <p>Welcome! You are logged in.</p>
+  <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">Logout</a>
+</div>
+{% endblock %}

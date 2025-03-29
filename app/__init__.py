@@ -5,9 +5,11 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object("config.Config")
 
-    # Future: register blueprints for auth, products, scheduler, and API endpoints here
-    # For example:
-    # from .auth import auth_bp
-    # app.register_blueprint(auth_bp)
+    # Register authentication blueprint
+    from .auth import auth_bp
+
+    app.register_blueprint(auth_bp)
+
+    # Future: register other blueprints for products, scheduler, etc.
 
     return app
