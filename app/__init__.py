@@ -10,6 +10,11 @@ def create_app():
 
     app.register_blueprint(auth_bp)
 
+    # Register API blueprint
+    from .api import api_bp
+
+    app.register_blueprint(api_bp)
+
     # Future: register other blueprints for products, scheduler, etc.
 
     return app
