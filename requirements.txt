@@ -1,0 +1,5 @@
+Flask
+APScheduler
+python-dotenv
+requests
+fuzzywuzzy
