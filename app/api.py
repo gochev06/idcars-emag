@@ -1,6 +1,6 @@
 import threading
 from flask import Blueprint, request, jsonify
-from app.logger import add_log
+from app.logger import add_log, clear_logs, get_logs
 from app.services.emag_full_seq import run_create_process, run_update_process
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -74,3 +74,18 @@ def api_update():
         result.update({"status": "error", "message": str(e)})
 
     return jsonify(result)
+
+
+@api_bp.route("/logs", methods=["GET"])
+def api_logs():
+    """
+    Returns the in-memory logs as a JSON response.
+    """
+    logs = get_logs()
+    return jsonify({"logs": logs})
+
+
+@api_bp.route("/logs/clear", methods=["POST"])
+def api_clear_logs():
+    clear_logs()
+    return jsonify({"status": "success", "message": "Logs cleared."})
