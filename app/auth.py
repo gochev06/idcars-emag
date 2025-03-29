@@ -37,13 +37,14 @@ def login():
         expected_token = current_app.config.get(
             "NEW_EMAG_API_KEY"
         )  # TODO: Replace with your expected token
-        print(encoded_token, expected_token)
         if encoded_token == expected_token:
             session["logged_in"] = True
             flash("Logged in successfully.", "success")
             return redirect(url_for("auth.dashboard"))
         else:
             flash("Invalid credentials. Please try again.", "danger")
+    if session.get("logged_in"):
+        return redirect(url_for("auth.dashboard"))
 
     return render_template("login.html")
 
