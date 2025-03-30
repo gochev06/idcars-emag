@@ -59,6 +59,23 @@
     setInterval(fetchLogs, 10000);
     fetchLogs();
 
+
+    document.getElementById('deleteLogsBtn').addEventListener('click', function() {
+      const statusDiv = document.getElementById('operationStatus');
+      fetch('/api/logs/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clear' })
+      })
+      .then(response => response.json())
+      .then(data => {
+        // show the status message for a few seconds
+        statusDiv.textContent = data.message;
+        console.log('Logs cleared:', data);
+        fetchLogs();
+      })
+    })
+
     // Operations functions
     document.getElementById('createBtn').addEventListener('click', function() {
       const statusDiv = document.getElementById('operationStatus');
