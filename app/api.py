@@ -61,7 +61,10 @@ def api_update():
     try:
         # Call our refactored update function.
         summary = run_update_process(pause=pause, batch_size=batch_size)
-        add_log("Product update process completed successfully.")
+        if summary["emag_products_fetched"] == 0:
+            add_log("No EMAG products to update.")
+        else:
+            add_log("Product update process completed successfully.")
         result.update(
             {
                 "status": "success",

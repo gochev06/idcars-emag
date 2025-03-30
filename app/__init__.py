@@ -4,6 +4,7 @@ from flask import Flask
 def create_app():
     app = Flask(__name__)
     app.config.from_object("config.Config")
+    app.secret_key = app.config["SECRET_KEY"]
 
     # Register authentication blueprint
     from .auth import auth_bp

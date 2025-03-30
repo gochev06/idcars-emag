@@ -23,6 +23,7 @@ def fetch_all_emag_products(api_url: str, headers: dict, pause: int = 0) -> list
     page = 1  # starting page
     items_per_page = 100  # number of items per page
     all_products = []
+    result = True
 
     while True:
         # Set up parameters for pagination
@@ -31,32 +32,38 @@ def fetch_all_emag_products(api_url: str, headers: dict, pause: int = 0) -> list
 
         # Check for a successful request
         if response.status_code != 200:
-            print(f"Request failed at page {page} with status: {response.status_code}")
+            add_log(
+                f"Request failed at page {page} with status: {response.status_code}"
+            )
+            result = False
             break
         data = response.json()
         if data["isError"]:
-            print(
+
+            add_log(
                 f"Request failed at page >>{page}<< with messages: {data['messages']} and errors: {data['errors']}"
             )
+            result = False
 
         # Parse the JSON response
         products = data.get("results", [])
-        print(f"Request successful at page {page}")
+        add_log(f"Request successful at page {page}")
 
         # If the products list is empty, we've reached the end
         if not products:
-            print(f"No products found on page {page}. Ending pagination.")
+            add_log(f"No products found on page {page}. Ending pagination.")
+            result = False
             break
 
         # Append the products from the current page to our total list
         all_products.extend(products)
-        print(f"Fetched {len(products)} products from page {page}")
+        add_log(f"Fetched {len(products)} products from page {page}")
 
         # Move to the next page
         page += 1
         time.sleep(pause)
 
-    return all_products
+    return result, all_products
 
 
 def fetch_all_fitness1_products(api_url: str, api_key: str) -> list:
@@ -74,11 +81,11 @@ def fetch_all_fitness1_products(api_url: str, api_key: str) -> list:
 
     # Check for a successful request
     if response.status_code != 200:
-        print(f"Request failed with status code: {response.status_code}")
+        add_log(f"Request failed with status code: {response.status_code}")
         return
     data = response.json()
     if data.get("status") not in ["ok"]:
-        print(f"Request failed with data {data}")
+        add_log(f"Request failed with data {data}")
         return
 
     return data.get("products")
@@ -109,23 +116,24 @@ def fetch_all_categories_from_categories_list_emag(
 
         # Check for a successful request
         if response.status_code != 200:
-            print(
+            add_log(
                 f"Request failed for category {category} with status: {response.status_code}"
             )
             break
         data = response.json()
         if data["isError"]:
-            print(
+
+            add_log(
                 f"Request failed for category >>{category}<< with messages: {data['messages']} and errors: {data['errors']}"
             )
 
         # Parse the JSON response
         category_data = data.get("results", [])
-        print(f"Request successful for category {category}")
+        add_log(f"Request successful for category {category}")
 
         # If the products list is empty, we've reached the end
         if not category_data:
-            print("No category data found.")
+            add_log("No category data found.")
             break
 
         # Append the products from the current page to our total list
@@ -134,7 +142,7 @@ def fetch_all_categories_from_categories_list_emag(
         # Move to the next page
         time.sleep(pause)
 
-    print(f"Fetched {len(all_categories)} categories")
+    add_log(f"Fetched {len(all_categories)} categories")
     return all_categories
 
 
@@ -180,12 +188,12 @@ def post_emag_product(
         time.sleep(pause)
         response = requests.post(api_url, json=batch, headers=headers)
         if not response.ok:
-            print(f"Request failed with status: {response.status_code}")
-        print(response.json())
+            add_log(f"Request failed with status: {response.status_code}")
+        add_log(response.json())
         data = util.EmagResponse(response.json())
 
         if data.is_error:
-            print(
+            add_log(
                 f"Request failed >>{batch}<< with messages: {data.messages} and errors: {data.errors}"
             )
             failed_products.append(
@@ -198,7 +206,7 @@ def post_emag_product(
             )
             # return data
 
-    print(f"Request successful for product {emag_product_data}")
+    add_log(f"Request successful for product {emag_product_data}")
     return failed_products
 
 
@@ -209,12 +217,12 @@ def run():
         pause=1,
     )
 
-    print(f"Fetched {len(all_emag_products)} EMAG products")
+    add_log(f"Fetched {len(all_emag_products)} EMAG products")
 
     all_fitness1_products = fetch_all_fitness1_products(
         api_url=const.FITNESS1_API_URL, api_key=const.FITNESS1_API_KEY
     )
-    print(f"Fetched {len(all_fitness1_products)} Fitness1 products")
+    add_log(f"Fetched {len(all_fitness1_products)} Fitness1 products")
 
     fitness1_related_emag_products_based_on_ean = (
         util.get_fitness1_related_emag_products_based_on_ean(
@@ -281,7 +289,7 @@ def run():
             f1_to_emag_categories,
         )
         emag_products.append(emag_product)
-    print(f"Created {len(emag_products)} EMAG products")
+    add_log(f"Created {len(emag_products)} EMAG products")
 
     failed_products = post_emag_product(
         emag_product_data=[emag_product.to_dict() for emag_product in emag_products],
@@ -290,10 +298,10 @@ def run():
         pause=2,
     )
 
-    print(f"Created {len(emag_products) - len(failed_products)} EMAG products")
+    add_log(f"Created {len(emag_products) - len(failed_products)} EMAG products")
     with open("failed_products.json", "w") as f:
         json.dump(failed_products, f, indent=4)
-        print("Failed products saved to failed_products.json")
+        add_log("Failed products saved to failed_products.json")
 
 
 def update_emag_products(batch_size=50, pause=1):
@@ -303,12 +311,12 @@ def update_emag_products(batch_size=50, pause=1):
         pause=1,
     )
 
-    print(f"Fetched {len(all_emag_products)} EMAG products")
+    add_log(f"Fetched {len(all_emag_products)} EMAG products")
 
     all_fitness1_products = fetch_all_fitness1_products(
         api_url=const.FITNESS1_API_URL, api_key=const.FITNESS1_API_KEY
     )
-    print(f"Fetched {len(all_fitness1_products)} Fitness1 products")
+    add_log(f"Fetched {len(all_fitness1_products)} Fitness1 products")
 
     emag_p_to_f1_p_map = util.create_emag_p_to_f1_p_map(
         all_emag_products, all_fitness1_products
@@ -329,12 +337,12 @@ def update_emag_products(batch_size=50, pause=1):
             headers=const.EMAG_HEADERS,
         )
         if not response.ok:
-            print(f"Request failed with status: {response.status_code}")
-        print(response.json())
+            add_log(f"Request failed with status: {response.status_code}")
+        add_log(response.json())
         data = util.EmagResponse(response.json())
 
         if data.is_error:
-            print(
+            add_log(
                 f"Request failed >>{batch}<< with messages: {data.messages} and errors: {data.errors}"
             )
             failed_updates.append(
@@ -346,12 +354,12 @@ def update_emag_products(batch_size=50, pause=1):
                 }
             )
 
-    print(
+    add_log(
         f"Updated {len(updated_emag_product_data) - len(failed_updates)} EMAG products"
     )
     with open("failed_updates.json", "w") as f:
         json.dump(failed_updates, f, indent=4)
-        print("Failed updates saved to failed_updates.json")
+        add_log("Failed updates saved to failed_updates.json")
 
 
 def run_create_process(pause=1, batch_size=50):
@@ -381,11 +389,14 @@ def run_create_process(pause=1, batch_size=50):
     add_log("Starting product creation process...")
 
     # Step 1: Fetch all EMAG products
-    emag_products_fetched = fetch_all_emag_products(
+    emag_products_result, emag_products_fetched = fetch_all_emag_products(
         api_url=util.build_url(const.EMAG_URL, "product_offer", "read"),
         headers=const.EMAG_HEADERS,
         pause=pause,
     )
+    if not emag_products_result:
+        add_log("Failed to fetch EMAG products.")
+        return {"emag_products_fetched": len(emag_products_fetched)}
     add_log(f"Fetched {len(emag_products_fetched)} EMAG products.")
 
     # Step 2: Fetch all Fitness1 products
@@ -400,11 +411,15 @@ def run_create_process(pause=1, batch_size=50):
             fitness1_products, emag_products_fetched
         )
     )
+    add_log(
+        f"Fetched {len(fitness1_related_emag_products)} Fitness1 related EMAG products."
+    )
 
     # Step 4: Get current EMAG categories from the remaining products
     current_emag_categories = util.get_current_emag_products_categories(
         emag_products_fetched
     )
+    add_log(f"Fetched {len(current_emag_categories)} EMAG categories.")
 
     # Fetch detailed EMAG category data
     all_emag_categories = fetch_all_categories_from_categories_list_emag(
@@ -517,11 +532,14 @@ def run_update_process(pause=1, batch_size=50):
     add_log("Starting product update process...")
 
     # Step 1: Fetch all EMAG products.
-    emag_products_fetched = fetch_all_emag_products(
+    emag_products_result, emag_products_fetched = fetch_all_emag_products(
         api_url=util.build_url(const.EMAG_URL, "product_offer", "read"),
         headers=const.EMAG_HEADERS,
         pause=pause,
     )
+    if not emag_products_result:
+        add_log("Failed to fetch EMAG products.")
+        return {"emag_products_fetched": len(emag_products_fetched)}
     add_log(f"Fetched {len(emag_products_fetched)} EMAG products.")
 
     # Step 2: Fetch all Fitness1 products.
@@ -529,7 +547,10 @@ def run_update_process(pause=1, batch_size=50):
         api_url=const.FITNESS1_API_URL, api_key=const.FITNESS1_API_KEY
     )
     add_log(f"Fetched {len(fitness1_products)} Fitness1 products.")
-
+    # return {
+    #     "emag_products_fetched": len(emag_products_fetched),
+    #     "fitness1_products_fetched": len(fitness1_products),
+    # }
     # Step 3: Build mapping between EMAG and Fitness1 products based on EAN.
     emag_p_to_f1_p_map = util.create_emag_p_to_f1_p_map(
         emag_products_fetched, fitness1_products

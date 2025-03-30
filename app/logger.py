@@ -2,6 +2,7 @@ logs = []
 
 
 def add_log(message):
+    print(message)
     logs.append(message)
 
 

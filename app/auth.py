@@ -37,6 +37,7 @@ def login():
         expected_token = current_app.config.get(
             "NEW_EMAG_API_KEY"
         )  # TODO: Replace with your expected token
+        print(expected_token, encoded_token)
         if encoded_token == expected_token:
             session["logged_in"] = True
             flash("Logged in successfully.", "success")
@@ -62,3 +63,9 @@ def logout():
 @login_required
 def dashboard():
     return render_template("dashboard.html")
+
+
+# Create an index route (or view) to redirect to the login page
+@auth_bp.route("/")
+def index():
+    return redirect(url_for("auth.dashboard"))
