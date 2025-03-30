@@ -1,0 +1,18 @@
+/* Container for the table */
+#fitness1TableContainer {
+    position: relative;
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+}
+/* The spacer to set total scrollable height */
+#fitness1Spacer {
+    height: 0; /* Will be set dynamically via JS */
+}
+/* Sticky header: ensure table headers stay on top */
+#fitness1Table thead th {
+    position: sticky;
+    top: 0;
+    background-color: #fff;
+    z-index: 2;
+}

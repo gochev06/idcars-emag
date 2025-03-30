@@ -1,7 +1,14 @@
 import threading
 from flask import Blueprint, request, jsonify
 from app.logger import add_log, clear_logs, get_logs
-from app.services.emag_full_seq import run_create_process, run_update_process
+from app.services.emag_full_seq import (
+    run_create_process,
+    run_update_process,
+    fetch_all_emag_products,
+    fetch_all_fitness1_products,
+)
+from app.services import const
+from app.services import util
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -92,3 +99,23 @@ def api_logs():
 def api_clear_logs():
     clear_logs()
     return jsonify({"status": "success", "message": "Logs cleared."})
+
+
+@api_bp.route("/products/fitness1", methods=["GET"])
+def api_get_fitness1_products():
+    # Use your existing function to fetch Fitness1 products
+    products = fetch_all_fitness1_products(
+        api_url=const.FITNESS1_API_URL, api_key=const.FITNESS1_API_KEY
+    )
+    # Optionally, you could process these into dicts if needed
+    return jsonify({"products": products})
+
+
+@api_bp.route("/products/emag", methods=["GET"])
+def api_get_emag_products():
+    products = fetch_all_emag_products(
+        api_url=util.build_url(const.EMAG_URL, "product_offer", "read"),
+        headers=const.EMAG_HEADERS,
+        pause=1,
+    )
+    return jsonify({"products": products})

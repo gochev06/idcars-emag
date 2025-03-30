@@ -27,97 +27,274 @@
 
 <!-- Dashboard Content -->
 <div class="container mt-4">
-  <!-- Operations Section -->
-  <div class="row">
-    <div class="col-md-12">
-      <h2>Operations</h2>
-      <div class="d-flex flex-wrap">
-        <button id="createBtn" class="btn btn-primary me-2 mb-2">Create Products</button>
-        <button id="updateBtn" class="btn btn-success me-2 mb-2">Update Products</button>
+  <!-- Tabs Navigation -->
+  <ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="operations-tab" data-bs-toggle="tab" data-bs-target="#operations" type="button" role="tab">Operations</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="products-tab" data-bs-toggle="tab" data-bs-target="#products" type="button" role="tab">Products</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="mappings-tab" data-bs-toggle="tab" data-bs-target="#mappings" type="button" role="tab">Mappings</button>
+    </li>
+  </ul>
+
+  <!-- Tabs Content -->
+  <div class="tab-content" id="dashboardTabsContent">
+    <!-- Operations Section -->
+    <div class="tab-pane fade show active" id="operations" role="tabpanel" aria-labelledby="operations-tab">
+      <div class="container mt-3">
+        <h2>Operations</h2>
+        <div class="d-flex flex-wrap">
+          <button id="createBtn" class="btn btn-primary me-2 mb-2">Create Products</button>
+          <button id="updateBtn" class="btn btn-success me-2 mb-2">Update Products</button>
+        </div>
+        <div id="operationStatus" class="mt-3"></div>
       </div>
-      <div id="operationStatus" class="mt-3"></div>
-    </div>
-  </div>
-  
-  <!-- Real-Time Logs Section -->
-  <div class="row mt-4">
-    <div class="col-md-12">
       <h2>Real-Time Logs</h2>
       <div id="logsContainer" class="border p-3" style="height: 300px; overflow-y: scroll; background-color: #f8f9fa;">
         <!-- Logs will be loaded here -->
       </div>
     </div>
+
+    <!-- Products Section -->
+    <div class="tab-pane fade" id="products" role="tabpanel" aria-labelledby="products-tab">
+        <button class="btn btn-primary mt-2" onclick="fetchProducts()">Refresh Products</button>
+      <div class="container mt-3">
+
+        <h3 class="mt-4">Fitness1 Products</h3>
+        <!-- Simple table without search and lazy loading -->
+        <div style="overflow-x: auto; overflow-y: auto; max-height: 300px;">
+          <table class="table table-bordered" id="fitness1Table">
+            <thead class="table-light">
+              <tr>
+                <th>Brand Name</th>
+                <th>Product Name</th>
+                <th>Category</th>
+                <th>Barcode</th>
+                <th>Regular Price</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="container mt-3">
+        <h3 class="mt-4">EMAG Products</h3>
+        <div style="overflow-x: auto; overflow-y: auto; max-height: 300px;">
+          <table class="table table-bordered" id="emagTable">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Sale Price</th>
+                <th>Part Number</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mappings Section -->
+    <div class="tab-pane fade" id="mappings" role="tabpanel" aria-labelledby="mappings-tab">
+      <div class="container mt-3">
+        <h3>Category Mappings</h3>
+        <button class="btn btn-primary mb-2" onclick="refreshMappings()">Refresh Mappings</button>
+        <button class="btn btn-success mb-2" onclick="showNewMappingForm()">Add New Mapping</button>
+        <table class="table table-bordered" id="mappingsTable">
+          <thead class="table-light">
+            <tr>
+              <th>Fitness1 Category</th>
+              <th>EMAG Category</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <!-- New Mapping Form -->
+        <div id="newMappingForm" class="mt-3" style="display: none;">
+          <h4>New Mapping</h4>
+          <input type="text" id="newFitness1Cat" placeholder="Fitness1 Category" class="form-control mb-2">
+          <input type="text" id="newEmagCat" placeholder="EMAG Category" class="form-control mb-2">
+          <button class="btn btn-success" onclick="createMapping()">Create Mapping</button>
+          <button class="btn btn-secondary" onclick="hideNewMappingForm()">Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- AJAX Script for Real-Time Updates and Operations -->
+<!-- JavaScript for Operations and Tabs -->
 <script>
-// Function to fetch and display logs from the API
-function fetchLogs() {
-  fetch('/api/logs')
+  // Fetch logs every 10 seconds
+  function fetchLogs() {
+    fetch('/api/logs')
+      .then(response => response.json())
+      .then(data => {
+        const logsContainer = document.getElementById('logsContainer');
+        logsContainer.innerHTML = '';
+        data.logs.forEach(log => {
+          const p = document.createElement('p');
+          p.textContent = log;
+          logsContainer.appendChild(p);
+        });
+      })
+      .catch(error => console.error('Error fetching logs:', error));
+  }
+  setInterval(fetchLogs, 10000);
+  fetchLogs();
+
+  // Create and update operations
+  document.getElementById('createBtn').addEventListener('click', function() {
+    const statusDiv = document.getElementById('operationStatus');
+    statusDiv.textContent = "Starting create process...";
+    fetch('/api/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pause: 1, batch_size: 50 })
+    })
     .then(response => response.json())
     .then(data => {
-      const logsContainer = document.getElementById('logsContainer');
-      logsContainer.innerHTML = '';
-      data.logs.forEach(log => {
-        const p = document.createElement('p');
-        p.textContent = log;
-        logsContainer.appendChild(p);
-      });
+      statusDiv.textContent = data.message;
+      console.log('Create Process Result:', data);
+      fetchLogs();
     })
-    .catch(error => console.error('Error fetching logs:', error));
-}
-
-// Poll the logs endpoint every 10 seconds (10000ms)
-setInterval(fetchLogs, 10 * 1000);
-fetchLogs(); // Initial load
-
-// Function to handle the create process
-document.getElementById('createBtn').addEventListener('click', function() {
-  const statusDiv = document.getElementById('operationStatus');
-  statusDiv.textContent = "Starting create process...";
-  fetch('/api/create', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ pause: 1, batch_size: 50 })
-  })
-  .then(response => response.json())
-  .then(data => {
-    statusDiv.textContent = data.message;
-    console.log('Create Process Result:', data);
-    // Refresh logs after the process completes
-    fetchLogs();
-  })
-  .catch(error => {
-    statusDiv.textContent = "Error: " + error;
-    console.error('Error in create process:', error);
+    .catch(error => {
+      statusDiv.textContent = "Error: " + error;
+      console.error('Error in create process:', error);
+    });
   });
-});
 
-// Function to handle the update process
-document.getElementById('updateBtn').addEventListener('click', function() {
-  const statusDiv = document.getElementById('operationStatus');
-  statusDiv.textContent = "Starting update process...";
-  fetch('/api/update', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ pause: 1, batch_size: 50 })
-  })
-  .then(response => response.json())
-  .then(data => {
-    statusDiv.textContent = data.message;
-    console.log('Update Process Result:', data);
-    // Refresh logs after the process completes
-    fetchLogs();
-  })
-  .catch(error => {
-    statusDiv.textContent = "Error: " + error;
-    console.error('Error in update process:', error);
+  document.getElementById('updateBtn').addEventListener('click', function() {
+    const statusDiv = document.getElementById('operationStatus');
+    statusDiv.textContent = "Starting update process...";
+    fetch('/api/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pause: 1, batch_size: 50 })
+    })
+    .then(response => response.json())
+    .then(data => {
+      statusDiv.textContent = data.message;
+      console.log('Update Process Result:', data);
+      fetchLogs();
+    })
+    .catch(error => {
+      statusDiv.textContent = "Error: " + error;
+      console.error('Error in update process:', error);
+    });
   });
-});
+
+  // Fetch Products (simple implementation without lazy loading)
+  function fetchProducts() {
+    // Fetch Fitness1 products
+    fetch('/api/products/fitness1')
+      .then(response => response.json())
+      .then(data => {
+        const tbody = document.querySelector('#fitness1Table tbody');
+        tbody.innerHTML = '';
+        data.products.forEach(prod => {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${prod.brand_name}</td>
+                           <td>${prod.product_name}</td>
+                           <td>${prod.category}</td>
+                           <td>${prod.barcode}</td>
+                           <td>${prod.regular_price}</td>`;
+          tbody.appendChild(row);
+        });
+      })
+      .catch(error => console.error('Error fetching Fitness1 products:', error));
+
+    // Fetch EMAG products
+    fetch('/api/products/emag')
+      .then(response => response.json())
+      .then(data => {
+        const tbody = document.querySelector('#emagTable tbody');
+        tbody.innerHTML = '';
+        data.products.forEach(prod => {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${prod.id}</td>
+                           <td>${prod.name}</td>
+                           <td>${prod.sale_price}</td>
+                           <td>${prod.part_number}</td>
+                           <td>${prod.status}</td>`;
+          tbody.appendChild(row);
+        });
+      })
+      .catch(error => console.error('Error fetching EMAG products:', error));
+  }
+
+  // Initial fetch for products can be triggered when the Products tab is activated
+  // document.getElementById('products-tab').addEventListener('click', fetchProducts);
+
+  // Mappings functions
+  function refreshMappings() {
+    fetch('/api/mappings')
+      .then(response => response.json())
+      .then(data => {
+        const tbody = document.querySelector('#mappingsTable tbody');
+        tbody.innerHTML = '';
+        const mappings = data.mappings;
+        for (const id in mappings) {
+          const mapping = mappings[id];
+          const row = document.createElement('tr');
+          row.dataset.id = id;
+          row.innerHTML = `<td>${mapping.fitness1_category}</td>
+                           <td contenteditable="true">${mapping.emag_category}</td>
+                           <td>
+                             <button class="btn btn-primary btn-sm" onclick="saveMapping(${id}, this)">Save</button>
+                           </td>`;
+          tbody.appendChild(row);
+        }
+      })
+      .catch(error => console.error('Error fetching mappings:', error));
+  }
+
+  function saveMapping(mappingId, btn) {
+    const row = btn.closest('tr');
+    const newEmagCat = row.cells[1].innerText;
+    fetch('/api/mappings/' + mappingId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emag_category: newEmagCat })
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert(data.status === "success" ? "Mapping updated!" : "Error: " + data.message);
+      refreshMappings();
+    })
+    .catch(error => console.error('Error updating mapping:', error));
+  }
+
+  function showNewMappingForm() {
+    document.getElementById('newMappingForm').style.display = 'block';
+  }
+  function hideNewMappingForm() {
+    document.getElementById('newMappingForm').style.display = 'none';
+  }
+  function createMapping() {
+    const fitness1Cat = document.getElementById('newFitness1Cat').value;
+    const emagCat = document.getElementById('newEmagCat').value;
+    fetch('/api/mappings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fitness1_category: fitness1Cat, emag_category: emagCat })
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert(data.status === "success" ? "Mapping created!" : "Error: " + data.message);
+      hideNewMappingForm();
+      refreshMappings();
+    })
+    .catch(error => console.error('Error creating mapping:', error));
+  }
+
+  // Refresh mappings when the Mappings tab is clicked
+  document.getElementById('mappings-tab').addEventListener('click', refreshMappings);
 </script>
 {% endblock %}
