@@ -20,3 +20,11 @@ class Config:
     # Flask app configuration
     FLASK_APP = os.environ.get("FLASK_APP", "app:create_app()")
     FLASK_ENV = os.environ.get("FLASK_ENV", "development")
+
+    # APScheduler configuration
+    SCHEDULER_API_ENABLED = True
+    APSCHEDULER_JOBSTORES = {
+        "default": {"type": "sqlalchemy", "url": SQLALCHEMY_DATABASE_URI}
+    }
+    APSCHEDULER_TIMEZONE = "UTC"  # or set your local timezone
+    APSCHEDULER_JOB_DEFAULTS = {"coalesce": False, "max_instances": 1}

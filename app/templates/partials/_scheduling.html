@@ -1,0 +1,29 @@
+<!-- Scheduling Tab Content -->
+
+<div class="container mt-3">
+    <h3>Schedule Update Process</h3>
+    <!-- Dropdown to choose schedule type -->
+    <div class="mb-2">
+    <label for="scheduleType">Schedule Type:</label>
+    <select id="scheduleType" class="form-control" onchange="toggleScheduleOptions()">
+        <option value="time">Time-Based</option>
+        <option value="interval">Interval-Based</option>
+    </select>
+    </div>
+    <!-- Time-based input -->
+    <div class="mb-2" id="timeInput">
+    <label for="timeValue">Time (HH:MM):</label>
+    <input type="time" id="timeValue" class="form-control">
+    </div>
+    <!-- Interval-based input (hidden by default) -->
+    <div class="mb-2" id="intervalInput" style="display: none;">
+    <label for="intervalHours">Interval (hours):</label>
+    <input type="number" id="intervalHours" class="form-control" min="1" value="12">
+    </div>
+    <button class="btn btn-primary" onclick="scheduleUpdate()">Schedule Update</button>
+    <button class="btn btn-warning" onclick="cancelScheduledUpdate()">Cancel Scheduled Update</button>
+    <button class="btn btn-success" onclick="triggerScheduledUpdate()">Trigger Update Now</button>
+
+    <h4 class="mt-4">Current Scheduled Job</h4>
+    <div id="jobStatus"></div>
+</div>

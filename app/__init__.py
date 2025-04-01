@@ -1,9 +1,11 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_apscheduler import APScheduler
 
 db = SQLAlchemy()
 migrate = Migrate()
+scheduler = APScheduler()  # Create an APScheduler instance
 
 
 def create_app():
@@ -13,6 +15,10 @@ def create_app():
 
     db.init_app(app)
     migrate.init_app(app, db)
+
+    # Initialize APScheduler with persistent job store
+    scheduler.init_app(app)
+    scheduler.start()
 
     # Register authentication blueprint
     from .auth import auth_bp
@@ -24,7 +30,9 @@ def create_app():
 
     app.register_blueprint(api_bp)
 
-    # Future: register other blueprints for products, scheduler, etc.
+    from .scheduler import sched_bp
+
+    app.register_blueprint(sched_bp, url_prefix="/scheduler")
 
     with app.app_context():
         db.create_all()  # For development; in production use migrations

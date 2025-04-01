@@ -16,6 +16,9 @@
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="mappings-tab" data-bs-toggle="tab" data-bs-target="#mappings" type="button" role="tab">Mappings</button>
       </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="scheduling-tab" data-bs-toggle="tab" data-bs-target="#scheduling" type="button" role="tab">Scheduling</button>
+      </li>
     </ul>
 
     <div class="tab-content" id="dashboardTabsContent">
@@ -32,6 +35,10 @@
       <!-- Mappings Tab -->
       <div class="tab-pane fade" id="mappings" role="tabpanel" aria-labelledby="mappings-tab">
         {% include "partials/_mappings.html" %}
+      </div>
+
+      <div class="tab-pane fade" id="scheduling" role="tabpanel" aria-labelledby="scheduling-tab">
+        {% include "partials/_scheduling.html" %}
       </div>
     </div>
   </div>
@@ -268,4 +275,98 @@ function createMapping() {
 
 
 </script>
+<script>
+    // Toggle between time-based and interval-based inputs
+function toggleScheduleOptions() {
+    const scheduleType = document.getElementById('scheduleType').value;
+    if (scheduleType === 'time') {
+      document.getElementById('timeInput').style.display = 'block';
+      document.getElementById('intervalInput').style.display = 'none';
+    } else {
+      document.getElementById('timeInput').style.display = 'none';
+      document.getElementById('intervalInput').style.display = 'block';
+    }
+  }
+  
+  // Function to schedule an update
+  function scheduleUpdate() {
+    const scheduleType = document.getElementById('scheduleType').value;
+    let payload = { schedule_type: scheduleType };
+    
+    if (scheduleType === 'time') {
+      const timeValue = document.getElementById('timeValue').value;
+      if (!timeValue) {
+        alert("Please select a time.");
+        return;
+      }
+      payload.time = timeValue;
+    } else {
+      const intervalHours = document.getElementById('intervalHours').value;
+      if (!intervalHours) {
+        alert("Please enter an interval in hours.");
+        return;
+      }
+      payload.interval_hours = intervalHours;
+    }
+    
+    fetch('/scheduler/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert(data.message);
+      refreshJobStatus();
+    })
+    .catch(error => console.error('Error scheduling update:', error));
+  }
+  
+  // Function to cancel the scheduled update
+  function cancelScheduledUpdate() {
+    fetch('/scheduler/cancel', {
+      method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert(data.message);
+      refreshJobStatus();
+    })
+    .catch(error => console.error('Error canceling job:', error));
+  }
+  
+  // Function to manually trigger the update
+  function triggerScheduledUpdate() {
+    fetch('/scheduler/trigger', {
+      method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert(data.message);
+      refreshJobStatus();
+    })
+    .catch(error => console.error('Error triggering update:', error));
+  }
+  
+  // Function to refresh and display the current job status
+  function refreshJobStatus() {
+    fetch('/scheduler/job')
+    .then(response => response.json())
+    .then(data => {
+      const jobStatusDiv = document.getElementById('jobStatus');
+      if (data.status === "success" && data.job) {
+        // Display relevant job details (e.g., next run time)
+        jobStatusDiv.innerHTML = `Job ID: ${data.job.id} <br> Next Run Time: ${data.job.next_run_time}`;
+      } else {
+        jobStatusDiv.innerHTML = "No scheduled job.";
+      }
+    })
+    .catch(error => console.error('Error fetching job status:', error));
+  }
+  
+  // Optionally, refresh job status when the Scheduling tab is clicked
+  document.getElementById('scheduling-tab').addEventListener('click', refreshJobStatus);
+  
+</script>
+
 {% endblock %}
