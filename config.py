@@ -13,4 +13,10 @@ class Config:
     # Additional configuration options can be added here
 
     # Database configuration
-    # SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///app.db")
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        "SQLALCHEMY_DATABASE_URI ", "sqlite:///app.db"
+    )
+
+    # Flask app configuration
+    FLASK_APP = os.environ.get("FLASK_APP", "app:create_app()")
+    FLASK_ENV = os.environ.get("FLASK_ENV", "development")
