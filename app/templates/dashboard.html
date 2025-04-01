@@ -71,6 +71,9 @@
       .then(data => {
         // show the status message for a few seconds
         statusDiv.textContent = data.message;
+        setTimeout(() => {
+          statusDiv.textContent = '';
+        }, 3000);
         console.log('Logs cleared:', data);
         fetchLogs();
       })
@@ -88,6 +91,9 @@
       .then(response => response.json())
       .then(data => {
         statusDiv.textContent = data.message;
+        setTimeout(() => {
+          statusDiv.textContent = '';
+        }, 3000);
         console.log('Create Process Result:', data);
         fetchLogs();
       })
@@ -108,6 +114,9 @@
       .then(response => response.json())
       .then(data => {
         statusDiv.textContent = data.message;
+        setTimeout(() => {
+          statusDiv.textContent = '';
+        }, 3000);
         console.log('Update Process Result:', data);
         fetchLogs();
       })
@@ -155,69 +164,108 @@
         })
         .catch(error => console.error('Error fetching EMAG products:', error));
     }
-    // document.getElementById('products-tab').addEventListener('click', fetchProducts);
+</script>
+<script>
+    // Global variable to store allowed categories
+let allowedCategories = [];
 
-    // Mappings functions
-    function refreshMappings() {
-      fetch('/api/mappings')
-        .then(response => response.json())
-        .then(data => {
-          const tbody = document.querySelector('#mappingsTable tbody');
-          tbody.innerHTML = '';
-          const mappings = data.mappings;
-          for (const id in mappings) {
-            const mapping = mappings[id];
-            const row = document.createElement('tr');
-            row.dataset.id = id;
-            row.innerHTML = `<td>${mapping.fitness1_category}</td>
-                             <td contenteditable="true">${mapping.emag_category}</td>
-                             <td>
-                               <button class="btn btn-primary btn-sm" onclick="saveMapping(${id}, this)">Save</button>
-                             </td>`;
-            tbody.appendChild(row);
-          }
-        })
-        .catch(error => console.error('Error fetching mappings:', error));
-    }
+// Function to load allowed categories from the API
+function loadAllowedCategories() {
+  fetch('/api/categories')
+    .then(response => response.json())
+    .then(data => {
+      allowedCategories = data.categories.map(cat => cat.name);
+      // Populate dropdowns in new mapping form
+      const newEmagSelect = document.getElementById('newEmagCat');
+      newEmagSelect.innerHTML = '';
+      allowedCategories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat;
+        option.textContent = cat;
+        newEmagSelect.appendChild(option);
+      });
+    })
+    .catch(error => console.error('Error fetching categories:', error));
+}
 
-    function saveMapping(mappingId, btn) {
-      const row = btn.closest('tr');
-      const newEmagCat = row.cells[1].innerText;
-      fetch('/api/mappings/' + mappingId, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emag_category: newEmagCat })
-      })
-      .then(response => response.json())
-      .then(data => {
-        alert(data.status === "success" ? "Mapping updated!" : "Error: " + data.message);
-        refreshMappings();
-      })
-      .catch(error => console.error('Error updating mapping:', error));
-    }
+// Call this when the dashboard loads
+loadAllowedCategories();
 
-    function showNewMappingForm() {
-      document.getElementById('newMappingForm').style.display = 'block';
-    }
-    function hideNewMappingForm() {
-      document.getElementById('newMappingForm').style.display = 'none';
-    }
-    function createMapping() {
-      const fitness1Cat = document.getElementById('newFitness1Cat').value;
-      const emagCat = document.getElementById('newEmagCat').value;
-      fetch('/api/mappings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fitness1_category: fitness1Cat, emag_category: emagCat })
-      })
-      .then(response => response.json())
-      .then(data => {
-        alert(data.status === "success" ? "Mapping created!" : "Error: " + data.message);
-        hideNewMappingForm();
-        refreshMappings();
-      })
-      .catch(error => console.error('Error creating mapping:', error));
-    }
-    // document.getElementById('mappings-tab').addEventListener('click', refreshMappings);
-  </script>
+// Refresh mappings: populate the mappings table with a dropdown for EMAG category.
+function refreshMappings() {
+  fetch('/api/mappings')
+    .then(response => response.json())
+    .then(data => {
+      const tbody = document.querySelector('#mappingsTable tbody');
+      tbody.innerHTML = '';
+      const mappings = data.mappings;
+      for (const id in mappings) {
+        const mapping = mappings[id];
+        const row = document.createElement('tr');
+        row.dataset.id = id;
+        // Fitness1 category is shown as text
+        const cell1 = `<td>${mapping.fitness1_category}</td>`;
+        // EMAG category: dropdown populated with allowed categories, with the current value selected
+        let selectHTML = `<select class="form-control emag-select">`;
+        allowedCategories.forEach(cat => {
+          selectHTML += `<option value="${cat}" ${cat === mapping.emag_category ? 'selected' : ''}>${cat}</option>`;
+        });
+        selectHTML += `</select>`;
+        const cell2 = `<td>${selectHTML}</td>`;
+        row.innerHTML = cell1 + cell2;
+        tbody.appendChild(row);
+      }
+    })
+    .catch(error => console.error('Error fetching mappings:', error));
+}
+
+// Save all mappings: iterate over table rows and send bulk update.
+function saveAllMappings() {
+  const updates = [];
+  document.querySelectorAll('#mappingsTable tbody tr').forEach(row => {
+    const id = row.dataset.id;
+    const newEmagCat = row.querySelector('.emag-select').value;
+    updates.push({ id: id, emag_category: newEmagCat });
+  });
+  fetch('/api/mappings', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ updates: updates })
+  })
+  .then(response => response.json())
+  .then(data => {
+    alert(data.status === "success" ? "Mappings updated!" : "Error: " + data.message);
+    refreshMappings();
+  })
+  .catch(error => console.error('Error updating mappings:', error));
+}
+
+// New mapping functions (unchanged except for dropdown population)
+function showNewMappingForm() {
+  document.getElementById('newMappingForm').style.display = 'block';
+}
+function hideNewMappingForm() {
+  document.getElementById('newMappingForm').style.display = 'none';
+}
+function createMapping() {
+  const fitness1Cat = document.getElementById('newFitness1Cat').value;
+  const emagCat = document.getElementById('newEmagCat').value;
+  fetch('/api/mappings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fitness1_category: fitness1Cat, emag_category: emagCat })
+  })
+  .then(response => response.json())
+  .then(data => {
+    alert(data.status === "success" ? "Mapping created!" : "Error: " + data.message);
+    hideNewMappingForm();
+    refreshMappings();
+  })
+  .catch(error => console.error('Error creating mapping:', error));
+}
+ // Refresh mappings when the Mappings tab is clicked
+  document.getElementById('mappings-tab').addEventListener('click', refreshMappings);
+
+
+</script>
 {% endblock %}

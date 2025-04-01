@@ -1,5 +1,7 @@
 import threading
 from flask import Blueprint, request, jsonify
+from app import db
+from app.models import FitnessCategory, Mapping
 from app.logger import add_log, clear_logs, get_logs
 from app.services.emag_full_seq import (
     run_create_process,
@@ -107,7 +109,7 @@ def api_get_fitness1_products():
     products = fetch_all_fitness1_products(
         api_url=const.FITNESS1_API_URL, api_key=const.FITNESS1_API_KEY
     )
-    # Optionally, you could process these into dicts if needed
+    # Optionally, you could process these into dicts if neededog
     return jsonify({"products": products})
 
 
@@ -119,3 +121,55 @@ def api_get_emag_products():
         pause=1,
     )
     return jsonify({"products": products})
+
+
+@api_bp.route("/mappings", methods=["GET"])
+def api_get_mappings():
+    mappings = Mapping.query.all()
+    return jsonify({"mappings": {m.id: m.as_dict() for m in mappings}})
+
+
+@api_bp.route("/mappings", methods=["POST"])
+def api_create_mapping():
+    data = request.get_json() or {}
+    fitness1_cat = data.get("fitness1_category")
+    emag_cat = data.get("emag_category")
+    if not (fitness1_cat and emag_cat):
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Both fitness1_category and emag_category are required.",
+                }
+            ),
+            400,
+        )
+    new_mapping = Mapping(fitness1_category=fitness1_cat, emag_category=emag_cat)
+    db.session.add(new_mapping)
+    db.session.commit()
+    return jsonify({"status": "success", "mapping": new_mapping.as_dict()}), 201
+
+
+@api_bp.route("/mappings", methods=["PATCH"])
+def api_update_mappings():
+    # Expect a list of mapping updates
+    data = request.get_json() or {}
+    updates = data.get("updates", [])
+    if not updates:
+        return jsonify({"status": "error", "message": "No updates provided."}), 400
+    for update in updates:
+        mapping_id = update.get("id")
+        new_emag_cat = update.get("emag_category")
+        if mapping_id and new_emag_cat:
+            mapping = Mapping.query.get(mapping_id)
+            if mapping:
+                mapping.emag_category = new_emag_cat
+    db.session.commit()
+    return jsonify({"status": "success", "message": "Mappings updated."})
+
+
+@api_bp.route("/categories", methods=["GET"])
+def api_get_categories():
+    # Return the allowed EMAG categories (from the FitnessCategory table)
+    categories = FitnessCategory.query.all()
+    return jsonify({"categories": [cat.as_dict() for cat in categories]})

@@ -52,11 +52,12 @@ def fetch_all_emag_products(api_url: str, headers: dict, pause: int = 0) -> list
         # If the products list is empty, we've reached the end
         if not products:
             add_log(f"No products found on page {page}. Ending pagination.")
-            result = False
             break
 
         # Append the products from the current page to our total list
         all_products.extend(products)
+        if not all_products:
+            result = False
         add_log(f"Fetched {len(products)} products from page {page}")
 
         # Move to the next page
@@ -261,7 +262,7 @@ def run():
     categories_mapping = util.build_mapping(
         fitness1_categories=all_fitness1_categories,
         emag_categories=all_emag_categories_names,
-        threshold=50,
+        threshold=80,
         keywords_mapping=const.KEYWORDS_MAPPING,
     )
     mapped_categories_strings = util.map_fitness1_category_to_emag_category_string(
@@ -445,7 +446,7 @@ def run_create_process(pause=1, batch_size=50):
     categories_mapping = util.build_mapping(
         fitness1_categories=all_fitness1_categories,
         emag_categories=emag_categories_names,
-        threshold=50,
+        threshold=80,
         keywords_mapping=const.KEYWORDS_MAPPING,
     )
     mapped_categories_strings = util.map_fitness1_category_to_emag_category_string(
