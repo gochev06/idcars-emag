@@ -272,9 +272,8 @@ function createMapping() {
 }
  // Refresh mappings when the Mappings tab is clicked
   document.getElementById('mappings-tab').addEventListener('click', refreshMappings);
-
-
 </script>
+
 <script>
     // Toggle between time-based and interval-based inputs
 function toggleScheduleOptions() {
@@ -287,12 +286,12 @@ function toggleScheduleOptions() {
       document.getElementById('intervalInput').style.display = 'block';
     }
   }
-  
+
   // Function to schedule an update
   function scheduleUpdate() {
     const scheduleType = document.getElementById('scheduleType').value;
     let payload = { schedule_type: scheduleType };
-    
+
     if (scheduleType === 'time') {
       const timeValue = document.getElementById('timeValue').value;
       if (!timeValue) {
@@ -308,7 +307,7 @@ function toggleScheduleOptions() {
       }
       payload.interval_hours = intervalHours;
     }
-    
+
     fetch('/scheduler/schedule', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -321,7 +320,7 @@ function toggleScheduleOptions() {
     })
     .catch(error => console.error('Error scheduling update:', error));
   }
-  
+
   // Function to cancel the scheduled update
   function cancelScheduledUpdate() {
     fetch('/scheduler/cancel', {
@@ -334,7 +333,7 @@ function toggleScheduleOptions() {
     })
     .catch(error => console.error('Error canceling job:', error));
   }
-  
+
   // Function to manually trigger the update
   function triggerScheduledUpdate() {
     fetch('/scheduler/trigger', {
@@ -347,26 +346,32 @@ function toggleScheduleOptions() {
     })
     .catch(error => console.error('Error triggering update:', error));
   }
-  
+
   // Function to refresh and display the current job status
   function refreshJobStatus() {
     fetch('/scheduler/job')
-    .then(response => response.json())
-    .then(data => {
-      const jobStatusDiv = document.getElementById('jobStatus');
-      if (data.status === "success" && data.job) {
-        // Display relevant job details (e.g., next run time)
-        jobStatusDiv.innerHTML = `Job ID: ${data.job.id} <br> Next Run Time: ${data.job.next_run_time}`;
-      } else {
-        jobStatusDiv.innerHTML = "No scheduled job.";
-      }
-    })
-    .catch(error => console.error('Error fetching job status:', error));
+      .then(response => response.json())
+      .then(data => {
+        const jobStatusDiv = document.getElementById('jobStatus');
+        if (data.status === "success" && data.job) {
+          let nextRunTimeFormatted = "N/A";
+          if (data.job.next_run_time) {
+            // Parse the ISO date string into a Date object
+            const dt = new Date(data.job.next_run_time);
+            // Format it to a local date-time string
+            nextRunTimeFormatted = dt.toLocaleString();
+          }
+          jobStatusDiv.innerHTML = `Job ID: ${data.job.id} <br> Next Run Time: ${nextRunTimeFormatted}`;
+        } else {
+          jobStatusDiv.innerHTML = "No scheduled job.";
+        }
+      })
+      .catch(error => console.error('Error fetching job status:', error));
   }
-  
+
   // Optionally, refresh job status when the Scheduling tab is clicked
   document.getElementById('scheduling-tab').addEventListener('click', refreshJobStatus);
-  
+
 </script>
 
 {% endblock %}

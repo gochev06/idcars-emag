@@ -26,5 +26,5 @@ class Config:
     APSCHEDULER_JOBSTORES = {
         "default": {"type": "sqlalchemy", "url": SQLALCHEMY_DATABASE_URI}
     }
-    APSCHEDULER_TIMEZONE = "UTC"  # or set your local timezone
     APSCHEDULER_JOB_DEFAULTS = {"coalesce": False, "max_instances": 1}
+    APSCHEDULER_TIMEZONE = "Europe/Sofia"

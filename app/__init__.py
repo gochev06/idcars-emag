@@ -1,11 +1,10 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from flask_apscheduler import APScheduler
+from app.extensions import scheduler as sc
 
 db = SQLAlchemy()
 migrate = Migrate()
-scheduler = APScheduler()  # Create an APScheduler instance
 
 
 def create_app():
@@ -17,8 +16,8 @@ def create_app():
     migrate.init_app(app, db)
 
     # Initialize APScheduler with persistent job store
-    scheduler.init_app(app)
-    scheduler.start()
+    sc.init_app(app)
+    sc.start()
 
     # Register authentication blueprint
     from .auth import auth_bp
