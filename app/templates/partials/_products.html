@@ -1,34 +1,56 @@
 <div class="container mt-3">
-    <button class="btn btn-primary mt-2" onclick="fetchProducts()">Refresh Products</button>
-    <h3 class="mt-4">Fitness1 Products</h3>
-    <div style="overflow-x: auto; overflow-y: auto; max-height: 300px;">
-      <table class="table table-bordered" id="fitness1Table">
-        <thead class="table-light">
-          <tr>
-            <th>Brand Name</th>
-            <th>Product Name</th>
-            <th>Category</th>
-            <th>Barcode</th>
-            <th>Regular Price</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
+  <!-- Refresh Button -->
+  <div class="mb-3">
+    <button class="btn btn-primary" onclick="fetchProducts()">Refresh Products</button>
+  </div>
 
-    <h3 class="mt-4">EMAG Products</h3>
-    <div style="overflow-x: auto; overflow-y: auto; max-height: 300px;">
-      <table class="table table-bordered" id="emagTable">
-        <thead class="table-light">
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Sale Price</th>
-            <th>Part Number</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+  <!-- Fitness1 Products Card -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <h3 class="card-title mb-0">Fitness1 Products</h3>
     </div>
+    <div class="card-body p-0">
+      <div class="table-responsive" style="max-height: 300px;">
+        <table class="table table-bordered mb-0" id="fitness1Table">
+          <thead class="table-light">
+            <tr>
+              <th>Brand Name</th>
+              <th>Product Name</th>
+              <th>Category</th>
+              <th>Barcode</th>
+              <th>Regular Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Fitness1 products will be injected here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMAG Products Card -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title mb-0">EMAG Products</h3>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive" style="max-height: 300px;">
+        <table class="table table-bordered mb-0" id="emagTable">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Sale Price</th>
+              <th>Part Number</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- EMAG products will be injected here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>

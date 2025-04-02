@@ -7,19 +7,27 @@
   <!-- Dashboard Tabs -->
   <div class="container mt-4">
     <ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="operations-tab" data-bs-toggle="tab" data-bs-target="#operations" type="button" role="tab">Operations</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="products-tab" data-bs-toggle="tab" data-bs-target="#products" type="button" role="tab">Products</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="mappings-tab" data-bs-toggle="tab" data-bs-target="#mappings" type="button" role="tab">Mappings</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="scheduling-tab" data-bs-toggle="tab" data-bs-target="#scheduling" type="button" role="tab">Scheduling</button>
-      </li>
-    </ul>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="operations-tab" data-bs-toggle="tab" data-bs-target="#operations" type="button" role="tab">
+            <i class="fas fa-cogs"></i> Operations
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="products-tab" data-bs-toggle="tab" data-bs-target="#products" type="button" role="tab">
+            <i class="fas fa-box-open"></i> Products
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="mappings-tab" data-bs-toggle="tab" data-bs-target="#mappings" type="button" role="tab">
+            <i class="fas fa-exchange-alt"></i> Mappings
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="scheduling-tab" data-bs-toggle="tab" data-bs-target="#scheduling" type="button" role="tab">
+            <i class="fas fa-calendar-alt"></i> Scheduling
+          </button>
+        </li>
+      </ul>
 
     <div class="tab-content" id="dashboardTabsContent">
       <!-- Operations Tab -->
@@ -77,9 +85,11 @@
       .then(response => response.json())
       .then(data => {
         // show the status message for a few seconds
+        statusDiv.style.display = 'block';
         statusDiv.textContent = data.message;
         setTimeout(() => {
           statusDiv.textContent = '';
+          statusDiv.style.display = 'none';
         }, 3000);
         console.log('Logs cleared:', data);
         fetchLogs();
