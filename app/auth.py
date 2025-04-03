@@ -34,7 +34,7 @@ def login():
         # Create token: "username:password" then base64 encode it
         token = f"{username}:{password}"
         encoded_token = base64.b64encode(token.encode("utf-8")).decode("utf-8")
-        expected_token = current_app.config.get("EMAG_API_KEY")
+        expected_token = current_app.config.get("NEW_EMAG_API_KEY")
         if encoded_token == expected_token:
             session["logged_in"] = True
             flash("Logged in successfully.", "success")
