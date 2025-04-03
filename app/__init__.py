@@ -39,6 +39,10 @@ def create_app():
 
     with app.app_context():
         db.create_all()  # For development; in production use migrations
+        from initialize import populate_fitness_categories, populate_mappings
+
+        populate_fitness_categories()
+        populate_mappings()
 
     # if not app.debug:
     #     file_handler = RotatingFileHandler(
