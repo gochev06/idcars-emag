@@ -9,15 +9,6 @@
         "documentation": {}
     },
     {
-        "label": "argparse",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "argparse",
-        "description": "argparse",
-        "detail": "argparse",
-        "documentation": {}
-    },
-    {
         "label": "json",
         "kind": 6,
         "isExtraImport": true,
@@ -1328,7 +1319,7 @@
         "kind": 6,
         "importPath": "config",
         "description": "config",
-        "peekOfCode": "class Config:\n    DEBUG = os.environ.get(\"DEBUG\", \"False\") == \"True\"\n    SECRET_KEY = os.environ.get(\"SECRET_KEY\")\n    EMAG_API_KEY = os.environ.get(\"EMAG_API_KEY\")\n    FITNESS1_API_KEY = os.environ.get(\"FITNESS1_API_KEY\")\n    # NEW_EMAG_API_KEY = os.environ.get(\"NEW_EMAG_API_KEY\")  # TODO: remove it for prod\n    # Additional configuration options can be added here\n    # Database configuration\n    SQLALCHEMY_DATABASE_URI = os.environ.get(\n        \"SQLALCHEMY_DATABASE_URI \", \"sqlite:///app.db\"",
+        "peekOfCode": "class Config:\n    DEBUG = os.environ.get(\"DEBUG\", \"False\") == \"True\"\n    SECRET_KEY = os.environ.get(\"SECRET_KEY\")\n    EMAG_API_KEY = os.environ.get(\"EMAG_API_KEY\")\n    FITNESS1_API_KEY = os.environ.get(\"FITNESS1_API_KEY\")\n    # Additional configuration options can be added here\n    # Database configuration\n    SQLALCHEMY_DATABASE_URI = os.environ.get(\"DATABASE_URL\")\n    SQLALCHEMY_TRACK_MODIFICATIONS = False\n    # Flask app configuration",
         "detail": "config",
         "documentation": {}
     },

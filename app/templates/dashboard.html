@@ -98,28 +98,28 @@
     })
 
     // Operations functions
-    document.getElementById('createBtn').addEventListener('click', function() {
-      const statusDiv = document.getElementById('operationStatus');
-      statusDiv.textContent = "Starting create process...";
-      fetch('/api/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pause: 1, batch_size: 50 })
-      })
-      .then(response => response.json())
-      .then(data => {
-        statusDiv.textContent = data.message;
-        setTimeout(() => {
-          statusDiv.textContent = '';
-        }, 3000);
-        console.log('Create Process Result:', data);
-        fetchLogs();
-      })
-      .catch(error => {
-        statusDiv.textContent = "Error: " + error;
-        console.error('Error in create process:', error);
-      });
-    });
+    // document.getElementById('createBtn').addEventListener('click', function() {
+    //   const statusDiv = document.getElementById('operationStatus');
+    //   statusDiv.textContent = "Starting create process...";
+    //   fetch('/api/create', {
+    //     method: 'POST',
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify({ pause: 1, batch_size: 50 })
+    //   })
+    //   .then(response => response.json())
+    //   .then(data => {
+    //     statusDiv.textContent = data.message;
+    //     setTimeout(() => {
+    //       statusDiv.textContent = '';
+    //     }, 3000);
+    //     console.log('Create Process Result:', data);
+    //     fetchLogs();
+    //   })
+    //   .catch(error => {
+    //     statusDiv.textContent = "Error: " + error;
+    //     console.error('Error in create process:', error);
+    //   });
+    // });
 
     document.getElementById('updateBtn').addEventListener('click', function() {
       const statusDiv = document.getElementById('operationStatus');

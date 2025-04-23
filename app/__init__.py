@@ -1,6 +1,3 @@
-import logging
-from logging.handlers import RotatingFileHandler
-
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -38,24 +35,13 @@ def create_app():
     app.register_blueprint(sched_bp, url_prefix="/scheduler")
 
     with app.app_context():
-        db.create_all()  # For development; in production use migrations
-        # from initialize import populate_fitness_categories, populate_mappings
+        if app.config.get("FLASK_ENV") == "development":
+            db.create_all()
 
-        # populate_fitness_categories()
-        # populate_mappings()
+            # Optionally populate the database if it's empty.
+            from initialize import populate_fitness_categories, populate_mappings
 
-    # if not app.debug:
-    #     file_handler = RotatingFileHandler(
-    #         "logs/app.log", maxBytes=10240, backupCount=10
-    #     )
-    #     file_handler.setFormatter(
-    #         logging.Formatter(
-    #             "%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]"
-    #         )
-    #     )
-    #     file_handler.setLevel(logging.INFO)
-    #     app.logger.addHandler(file_handler)
-    #     app.logger.setLevel(logging.INFO)
-    #     app.logger.info("App startup")
+            populate_fitness_categories()
+            populate_mappings()
 
     return app
