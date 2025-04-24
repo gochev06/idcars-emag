@@ -10,7 +10,12 @@ class FitnessCategory(db.Model):
     emag_product_name_category = db.Column(db.String(255), nullable=True)
 
     def as_dict(self):
-        return {"id": self.id, "name": self.name}
+        return {
+            "id": self.id,
+            "name": self.name,
+            "emag_category_id": self.emag_category_id,
+            "emag_product_name_category": self.emag_product_name_category,
+        }
 
 
 class Mapping(db.Model):
@@ -31,7 +36,6 @@ class Mapping(db.Model):
             "id": self.id,
             "fitness1_category": self.fitness1_category,
             "emag_category": self.emag_category,
-            "emag_category_id": self.emag_category_id,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
