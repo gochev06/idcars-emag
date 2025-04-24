@@ -2,13 +2,13 @@ import base64
 from functools import wraps
 from flask import (
     Blueprint,
+    current_app,
+    flash,
+    redirect,
     render_template,
     request,
-    redirect,
-    url_for,
     session,
-    flash,
-    current_app,
+    url_for,
 )
 
 auth_bp = Blueprint("auth", __name__)

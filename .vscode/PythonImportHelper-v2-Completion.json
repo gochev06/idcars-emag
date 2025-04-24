@@ -1085,7 +1085,7 @@
         "kind": 2,
         "importPath": "app.auth",
         "description": "app.auth",
-        "peekOfCode": "def login():\n    if request.method == \"POST\":\n        username = request.form.get(\"username\")\n        password = request.form.get(\"password\")\n        # Create token: \"username:password\" then base64 encode it\n        token = f\"{username}:{password}\"\n        encoded_token = base64.b64encode(token.encode(\"utf-8\")).decode(\"utf-8\")\n        expected_token = current_app.config.get(\"EMAG_API_KEY\")\n        if encoded_token == expected_token:\n            session[\"logged_in\"] = True",
+        "peekOfCode": "def login():\n    if request.method == \"POST\":\n        username = request.form.get(\"username\")\n        password = request.form.get(\"password\")\n        # Create token: \"username:password\" then base64 encode it\n        token = f\"{username}:{password}\"\n        encoded_token = base64.b64encode(token.encode(\"utf-8\")).decode(\"utf-8\")\n        expected_token = current_app.config.get(\"NEW_EMAG_API_KEY\")\n        if encoded_token == expected_token:\n            session[\"logged_in\"] = True",
         "detail": "app.auth",
         "documentation": {}
     },
@@ -1346,7 +1346,7 @@
         "kind": 5,
         "importPath": "run",
         "description": "run",
-        "peekOfCode": "app = create_app()\nif __name__ == \"__main__\":\n    app.run()",
+        "peekOfCode": "app = create_app()\nif __name__ == \"__main__\":\n    app.run(debug=True)",
         "detail": "run",
         "documentation": {}
     },

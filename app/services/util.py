@@ -152,11 +152,20 @@ def get_fitness1_related_emag_products_based_on_ean(
         list: A list of eMAG products whose EAN matches a barcode of a Fitness1 product in the input list.
     """
     fitness1_product_eans = [product["barcode"] for product in fitness1_products]
-    fitness1_related_emag_products = [
-        product
-        for product in emag_products
-        if product["ean"][0] in fitness1_product_eans
-    ]
+    fitness1_related_emag_products = []
+    for product in emag_products:
+        if not product.get("ean"):
+            print(f"Product {product['id']} has no EAN.")
+            continue
+        else:
+            if product["ean"][0] in fitness1_product_eans:
+                fitness1_related_emag_products.append(product)
+    # Using list comprehension for a more concise approach
+    # fitness1_related_emag_products = [
+    #     product
+    #     for product in emag_products
+    #     if product["ean"][0] in fitness1_product_eans
+    # ]
     return fitness1_related_emag_products
 
 
