@@ -408,7 +408,7 @@ def run_create_process(pause=1, batch_size=50):
     # Step 3: Determine related EMAG products based on matching EAN (barcode)
     fitness1_related_emag_products = (
         util.get_fitness1_related_emag_products_based_on_ean(
-            fitness1_products, emag_products_fetched
+            emag_products_fetched, fitness1_products
         )
     )
     add_log(
