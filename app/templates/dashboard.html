@@ -53,6 +53,33 @@
 {% endblock %}
 
 {% block extra_js %}
+
+  <script>
+    let updateStatusInterval = null;
+
+    function checkUpdateStatus() {
+        fetch('/api/update/status')
+        .then(response => response.json())
+        .then(data => {
+            const statusDiv = document.getElementById('operationStatus');
+            if (data.running) {
+                statusDiv.style.display = 'block';
+                statusDiv.textContent = 'Update is running: ' + (data.last_message || '');
+            } else {
+                statusDiv.style.display = 'block';
+                statusDiv.textContent = 'Update status: ' + (data.last_message || '');
+
+                // Stop polling when update is finished
+                if (updateStatusInterval) {
+                    clearInterval(updateStatusInterval);
+                    updateStatusInterval = null;
+                }
+            }
+        })
+        .catch(error => console.error('Error checking update status:', error));
+    }
+  </script>
+
   <script>
     // Example: Poll logs every 10 seconds
     function fetchLogs() {
@@ -121,26 +148,29 @@
     //   });
     // });
 
+
+
+    // When you click the "Update" button, start polling
     document.getElementById('updateBtn').addEventListener('click', function() {
+      // Start the update
       const statusDiv = document.getElementById('operationStatus');
-      statusDiv.textContent = "Starting update process...";
+      statusDiv.style.display = 'block';
+      statusDiv.textContent = 'Starting update...';
+
       fetch('/api/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pause: 1, batch_size: 50 })
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pause: 1, batch_size: 50 })
       })
       .then(response => response.json())
       .then(data => {
-        statusDiv.textContent = data.message;
-        setTimeout(() => {
-          statusDiv.textContent = '';
-        }, 3000);
-        console.log('Update Process Result:', data);
-        fetchLogs();
+          console.log('Update started:', data);
+          // After starting update, poll every 5 seconds
+          updateStatusInterval = setInterval(checkUpdateStatus, 5000);
       })
       .catch(error => {
-        statusDiv.textContent = "Error: " + error;
-        console.error('Error in update process:', error);
+          statusDiv.textContent = 'Error starting update: ' + error;
+          console.error('Error starting update:', error);
       });
     });
 
