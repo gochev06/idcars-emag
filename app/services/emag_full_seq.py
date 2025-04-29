@@ -510,101 +510,137 @@ def run_create_process(pause=1, batch_size=50):
 
 def run_update_process(pause=1, batch_size=50):
     """
-    Executes the complete update process for EMAG products.
-
-    Steps:
-      1. Fetches all current EMAG products.
-      2. Fetches all Fitness1 products.
-      3. Builds a mapping between EMAG products and Fitness1 products based on EAN.
-      4. Generates updated EMAG product data.
-      5. Splits the updated data into batches.
-      6. Posts each batch and collects any failures.
-
-    Parameters:
-      pause (int): Seconds to pause between API requests.
-      batch_size (int): Number of product entries per batch.
-
-    Returns:
-      dict: A summary containing counts of fetched products, updated entries,
-            successful updates, and details of any failed batches.
+    Optimized version of the update process with streaming.
     """
 
     add_log("Starting product update process...")
 
-    # Step 1: Fetch all EMAG products.
-    emag_products_result, emag_products_fetched = fetch_all_emag_products(
-        api_url=util.build_url(const.EMAG_URL, "product_offer", "read"),
-        headers=const.EMAG_HEADERS,
-        pause=pause,
-    )
-    if not emag_products_result:
-        add_log("Failed to fetch EMAG products.")
-        return {"emag_products_fetched": len(emag_products_fetched)}
-    add_log(f"Fetched {len(emag_products_fetched)} EMAG products.")
-
-    # Step 2: Fetch all Fitness1 products.
+    # Step 1: Fetch all Fitness1 products once
     fitness1_products = fetch_all_fitness1_products(
         api_url=const.FITNESS1_API_URL, api_key=const.FITNESS1_API_KEY
     )
+    if not fitness1_products:
+        add_log("Failed to fetch Fitness1 products.")
+        return {"fitness1_products_fetched": 0}
+
     add_log(f"Fetched {len(fitness1_products)} Fitness1 products.")
-    # return {
-    #     "emag_products_fetched": len(emag_products_fetched),
-    #     "fitness1_products_fetched": len(fitness1_products),
-    # }
-    # Step 3: Build mapping between EMAG and Fitness1 products based on EAN.
-    emag_p_to_f1_p_map = util.create_emag_p_to_f1_p_map(
-        emag_products_fetched, fitness1_products
-    )
-    add_log(f"Built mapping for {len(emag_p_to_f1_p_map)} products.")
 
-    # Step 4: Generate updated EMAG product data.
-    updated_emag_product_data = util.update_emag_product_data(emag_p_to_f1_p_map)
-    add_log(f"Prepared {len(updated_emag_product_data)} updated EMAG product entries.")
+    # Create a lookup table for Fitness1 products by barcode
+    fitness1_index = {product["barcode"]: product for product in fitness1_products}
 
-    # Step 5: Split the updated product data into batches.
-    batched_updated_emag_product_data = util.split_list(
-        updated_emag_product_data, batch_size
-    )
-    add_log(
-        f"Split updated data into {len(batched_updated_emag_product_data)} batches (batch size: {batch_size})."
-    )
+    # Step 2: Stream EMAG products page by page
+    page = 1
+    items_per_page = 100  # or whatever you want
+    total_emag_products = 0
+    total_updates = 0
+    failed_batches = []
 
-    # Step 6: Process each batch and post updates.
-    failed_updates = []
-    for i, batch in enumerate(batched_updated_emag_product_data):
-        add_log(f"Posting batch {i+1} of {len(batched_updated_emag_product_data)}...")
-        time.sleep(pause)  # Pause between batches
+    while True:
+        # Fetch one page of EMAG products
+        payload = {"currentPage": page, "itemsPerPage": items_per_page}
         response = requests.post(
-            url=util.build_url(const.EMAG_URL, "product_offer", "save"),
-            json=batch,
+            url=util.build_url(const.EMAG_URL, "product_offer", "read"),
+            json=payload,
             headers=const.EMAG_HEADERS,
         )
-        if not response.ok:
+
+        if response.status_code != 200:
             add_log(
-                f"Request failed for batch {i+1} with status code {response.status_code}."
+                f"Failed to fetch EMAG products at page {page}. Status: {response.status_code}"
             )
-        data = util.EmagResponse(response.json())
-        if data.is_error:
-            add_log(f"Batch {i+1} errors: {data.messages} {data.errors}")
-            failed_updates.append(
-                {
-                    "batch": i + 1,
-                    "emag_product_data": batch,
-                    "messages": data.messages,
-                    "errors": data.errors,
-                }
+            break
+
+        data = response.json()
+
+        if data.get("isError", False):
+            add_log(f"Error fetching page {page}: {data.get('messages', [])}")
+            break
+
+        emag_products = data.get("results", [])
+
+        if not emag_products:
+            add_log(f"No more products found on page {page}. Ending pagination.")
+            break
+
+        total_emag_products += len(emag_products)
+        add_log(f"Fetched {len(emag_products)} EMAG products on page {page}.")
+
+        # Map EMAG products to Fitness1 products
+        update_batch = []
+        for emag_product in emag_products:
+            ean_list = emag_product.get("ean", [])
+            if not ean_list:
+                continue  # skip products without EAN
+
+            barcode = ean_list[0]
+            fitness1_product = fitness1_index.get(barcode)
+
+            if fitness1_product:
+                # Build update entry
+                update_batch.append(
+                    {
+                        "id": emag_product["id"],
+                        "sale_price": fitness1_product["regular_price"],
+                        "status": fitness1_product["available"],
+                        "vat_id": 6,
+                    }
+                )
+
+        # Split into smaller batches
+        batched_updates = util.split_list(update_batch, batch_size)
+
+        # Send each batch
+        for i, batch in enumerate(batched_updates):
+            if not batch:
+                continue
+            add_log(f"Posting batch {i+1} of {len(batched_updates)} on page {page}...")
+            time.sleep(pause)
+
+            save_response = requests.post(
+                url=util.build_url(const.EMAG_URL, "product_offer", "save"),
+                json=batch,
+                headers=const.EMAG_HEADERS,
             )
 
-    successful_count = len(updated_emag_product_data) - len(failed_updates)
+            if not save_response.ok:
+                add_log(
+                    f"Save failed for batch {i+1} on page {page}. Status: {save_response.status_code}"
+                )
+                failed_batches.append(
+                    {
+                        "page": page,
+                        "batch": i + 1,
+                        "status_code": save_response.status_code,
+                        "response": save_response.text,
+                    }
+                )
+                continue
+
+            save_data = util.EmagResponse(save_response.json())
+            if save_data.is_error:
+                add_log(
+                    f"Errors in batch {i+1} on page {page}: {save_data.messages} {save_data.errors}"
+                )
+                failed_batches.append(
+                    {
+                        "page": page,
+                        "batch": i + 1,
+                        "errors": save_data.errors,
+                        "messages": save_data.messages,
+                    }
+                )
+            else:
+                total_updates += len(batch)
+
+        page += 1  # go to next page
+
     add_log(
-        f"Update process completed: {successful_count} successful updates, {len(failed_updates)} failed batches."
+        f"Update process completed: {total_updates} successful updates, {len(failed_batches)} failed batches."
     )
 
-    # Return a summary dictionary for API consumption.
     return {
-        "emag_products_fetched": len(emag_products_fetched),
         "fitness1_products_fetched": len(fitness1_products),
-        "updated_entries": len(updated_emag_product_data),
-        "successful_updates": successful_count,
-        "failed_updates": failed_updates,
+        "emag_products_fetched": total_emag_products,
+        "updated_entries": total_updates,
+        "failed_updates": failed_batches,
     }

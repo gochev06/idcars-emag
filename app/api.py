@@ -1,4 +1,5 @@
 import threading
+
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models import FitnessCategory, Mapping
@@ -13,6 +14,9 @@ from app.services import const
 from app.services import util
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
+
+# Simple global variable to track update job status
+update_job_status = {"running": False, "last_message": "No update run yet."}
 
 
 @api_bp.route("/create", methods=["POST"])
@@ -56,36 +60,60 @@ def api_create():
 @api_bp.route("/update", methods=["POST"])
 def api_update():
     """
-    Endpoint to trigger the product update process.
-    Accepts a JSON payload with optional parameters: 'pause' and 'batch_size'.
-    Runs the update process synchronously.
+    Starts the product update process in a background thread.
     """
+    global update_job_status
+
     data = request.get_json() or {}
     pause = data.get("pause", 1)
     batch_size = data.get("batch_size", 50)
 
     add_log("API /update endpoint called.")
-    result = {}
+
+    def background_update():
+        global update_job_status
+        try:
+            update_job_status["running"] = True
+            update_job_status["last_message"] = "Update process started."
+
+            summary = run_update_process(pause=pause, batch_size=batch_size)
+
+            update_job_status["running"] = False
+            update_job_status["last_message"] = (
+                f"Update completed. {summary['updated_entries']} entries updated."
+            )
+            add_log(f"Background update finished. Summary: {summary}")
+
+        except Exception as e:
+            update_job_status["running"] = False
+            update_job_status["last_message"] = f"Update failed: {str(e)}"
+            add_log(f"Error during background update: {str(e)}")
 
     try:
-        # Call our refactored update function.
-        summary = run_update_process(pause=pause, batch_size=batch_size)
-        if summary["emag_products_fetched"] == 0:
-            add_log("No EMAG products to update.")
-        else:
-            add_log("Product update process completed successfully.")
-        result.update(
-            {
-                "status": "success",
-                "message": "Product update process executed.",
-                "summary": summary,
-            }
+        thread = threading.Thread(target=background_update)
+        thread.start()
+
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "message": "Update process started in background.",
+                }
+            ),
+            202,
         )
     except Exception as e:
-        add_log(f"Error in product update process: {str(e)}")
-        result.update({"status": "error", "message": str(e)})
+        add_log(f"Error launching background update: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-    return jsonify(result)
+
+@api_bp.route("/update/status", methods=["GET"])
+def api_update_status():
+    """
+    Returns the current status of the update process.
+    """
+    global update_job_status
+    return jsonify(update_job_status)
 
 
 @api_bp.route("/logs", methods=["GET"])
