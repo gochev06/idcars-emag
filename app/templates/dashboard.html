@@ -57,17 +57,35 @@
   <script>
     let updateStatusInterval = null;
 
+    function showSpinner(show) {
+        const spinner = document.getElementById('operationSpinner');
+        if (show) {
+            spinner.classList.remove('d-none');
+        } else {
+            spinner.classList.add('d-none');
+        }
+    }
+
+    function showAlert(message, type='info') {
+        const alertDiv = document.getElementById('operationStatus');
+        alertDiv.textContent = message;
+        alertDiv.className = `alert alert-${type}`;
+    }
+
     function checkUpdateStatus() {
         fetch('/api/update/status')
         .then(response => response.json())
         .then(data => {
-            const statusDiv = document.getElementById('operationStatus');
             if (data.running) {
-                statusDiv.style.display = 'block';
-                statusDiv.textContent = 'Update is running: ' + (data.last_message || '');
+                showSpinner(true);
+                showAlert('Update is running: ' + (data.last_message || ''), 'info');
             } else {
-                statusDiv.style.display = 'block';
-                statusDiv.textContent = 'Update status: ' + (data.last_message || '');
+                showSpinner(false);
+                if (data.last_message && data.last_message.toLowerCase().includes('failed')) {
+                    showAlert('Update failed: ' + (data.last_message || ''), 'danger');
+                } else {
+                    showAlert('Update finished: ' + (data.last_message || ''), 'success');
+                }
 
                 // Stop polling when update is finished
                 if (updateStatusInterval) {
@@ -76,10 +94,13 @@
                 }
             }
         })
-        .catch(error => console.error('Error checking update status:', error));
+        .catch(error => {
+            showSpinner(false);
+            showAlert('Error checking update status: ' + error, 'danger');
+            console.error('Error checking update status:', error);
+        });
     }
   </script>
-
   <script>
     // Example: Poll logs every 10 seconds
     function fetchLogs() {
@@ -152,10 +173,8 @@
 
     // When you click the "Update" button, start polling
     document.getElementById('updateBtn').addEventListener('click', function() {
-      // Start the update
-      const statusDiv = document.getElementById('operationStatus');
-      statusDiv.style.display = 'block';
-      statusDiv.textContent = 'Starting update...';
+      showSpinner(true);
+      showAlert('Starting update...', 'info');
 
       fetch('/api/update', {
           method: 'POST',
@@ -165,11 +184,11 @@
       .then(response => response.json())
       .then(data => {
           console.log('Update started:', data);
-          // After starting update, poll every 5 seconds
           updateStatusInterval = setInterval(checkUpdateStatus, 5000);
       })
       .catch(error => {
-          statusDiv.textContent = 'Error starting update: ' + error;
+          showSpinner(false);
+          showAlert('Error starting update: ' + error, 'danger');
           console.error('Error starting update:', error);
       });
     });

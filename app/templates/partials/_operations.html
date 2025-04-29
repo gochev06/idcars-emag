@@ -8,11 +8,19 @@
         <button id="updateBtn" class="btn btn-success me-2">Update Products</button>
         <button id="deleteLogsBtn" class="btn btn-danger me-2">Delete Logs</button>
       </div>
-      <div id="operationStatus" class="alert alert-info" role="alert" style="display: none;">
+      <div id="operationStatus" class="alert d-none" role="alert">
+          <!-- Status message will appear here -->
+      </div>
+
+      <div id="operationSpinner" class="text-center d-none">
+          <div class="spinner-border" role="status">
+            <span class="visually-hidden">Updating...</span>
+          </div>
+      </div>
       </div>
     </div>
   </div>
-  
+
   <div class="card">
     <div class="card-header">
       Real-Time Logs
