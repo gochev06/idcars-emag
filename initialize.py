@@ -77,7 +77,9 @@ def update_emag_fitness_products_names():
 
     # Step 1: Fetch all EMAG products.
     emag_products_result, emag_products_fetched = fetch_all_emag_products(
-        api_url=util.build_url(const.EMAG_URL, "product_offer", "read"),
+        api_url=util.build_url(
+            base_url=const.EMAG_URL, resource="product_offer", action="read"
+        ),
         headers=const.EMAG_HEADERS,
         pause=0,
     )
@@ -125,7 +127,9 @@ def update_emag_fitness_products_names():
         print(f"Posting batch {i+1} of {len(batched_updated_emag_product_data)}...")
         time.sleep(1)  # Pause between batches
         response = requests.post(
-            url=util.build_url(const.EMAG_URL, "product_offer", "save"),
+            url=util.build_url(
+                base_url=const.EMAG_URL, resource="product_offer", action="save"
+            ),
             json=batch,
             headers=const.EMAG_HEADERS,
         )
@@ -169,9 +173,51 @@ def update_emag_fitness_products_names():
     #         )
 
 
+def set_emag_categories_ids():
+    # Step 1: Fetch all EMAG products
+    emag_products_result, emag_products_fetched = fetch_all_emag_products(
+        api_url=util.build_url(
+            base_url=const.EMAG_URL, resource="product_offer", action="read"
+        ),
+        headers=const.EMAG_HEADERS,
+    )
+    if not emag_products_result:
+        print("Failed to fetch EMAG products.")
+        return {"emag_products_fetched": len(emag_products_fetched)}
+    print(f"Fetched {len(emag_products_fetched)} EMAG products.")
+
+    current_emag_categories = util.get_current_emag_products_categories(
+        emag_products_fetched
+    )
+    all_emag_categories = fetch_all_categories_from_categories_list_emag(
+        api_url=util.build_url(
+            base_url=const.EMAG_URL, resource="category", action="read"
+        ),
+        headers=const.EMAG_HEADERS,
+        categories_list=current_emag_categories,
+    )
+    all_fitness_emag_categories = util.get_fitness_related_emag_categories(
+        all_emag_categories, const.FITNESS_CATEGORIES
+    )
+    cat_name_to_id_map = {cat["name"]: cat["id"] for cat in all_fitness_emag_categories}
+    print(cat_name_to_id_map)
+
+    # Step 2: Update the FitnessCategory table with EMAG category IDs
+    for cat in FitnessCategory.query.all():
+        emag_category_id = cat_name_to_id_map.get(cat.name)
+        if emag_category_id:
+            cat.emag_category_id = emag_category_id
+            db.session.add(cat)
+            print(f"Updating category: {cat.name} with ID: {emag_category_id}")
+    db.session.commit()
+    print("Categories IDs updated successfully.")
+
+
 if __name__ == "__main__":
     app = create_app()
     with app.app_context():
-        update_emag_fitness_products_names()
+        print("Running initialize.py...")
+        # set_emag_categories_ids()
+        # update_emag_fitness_products_names()
         # populate_fitness_categories()
         # populate_mappings()
