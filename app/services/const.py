@@ -10,7 +10,7 @@ EMAG_HEADERS = {
     "Content-Type": "application/json",
     "Authorization": f"Basic {EMAG_API_KEY}",
 }
-EMAG_URL = "https://marketplace-api.emag.bg/api-3/"
+EMAG_URL = "https://marketplace-api.emag.{}/api-3/"
 FITNESS1_API_URL = "https://fitness1.bg/b2b/api/products_v3"
 FITNESS_CATEGORIES = [
     "Спортни протектори за тяло",

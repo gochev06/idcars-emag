@@ -144,7 +144,9 @@ def api_get_fitness1_products():
 @api_bp.route("/products/emag", methods=["GET"])
 def api_get_emag_products():
     products = fetch_all_emag_products(
-        api_url=util.build_url(const.EMAG_URL, "product_offer", "read"),
+        api_url=util.build_url(
+            base_url=const.EMAG_URL, resource="product_offer", action="read"
+        ),
         headers=const.EMAG_HEADERS,
         pause=1,
     )

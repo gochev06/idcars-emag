@@ -296,7 +296,9 @@ def get_current_fitness1_categories(fitness1_products: list[dict]) -> list:
     )
 
 
-def build_url(base_url: str, resource: str, action: str):
+def build_url(
+    base_url: str, url_ext: str = "bg", resource: str = None, action: str = None
+) -> str:
     """
     Constructs a URL using the base URL, a given resource, and an action.
 
@@ -308,7 +310,8 @@ def build_url(base_url: str, resource: str, action: str):
     Returns:
         str: The full URL.
     """
-    return f"{base_url}/{resource}/{action}"
+    url = base_url.format(url_ext)
+    return f"{url}/{resource}/{action}"
 
 
 def get_subcategories(fitness1_cat: str):

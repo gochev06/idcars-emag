@@ -210,103 +210,11 @@ def post_emag_product(
     return failed_products
 
 
-def run():
-    all_emag_products = fetch_all_emag_products(
-        api_url=util.build_url(const.EMAG_URL, "product_offer", "read"),
-        headers=const.EMAG_HEADERS,
-        pause=1,
-    )
-
-    add_log(f"Fetched {len(all_emag_products)} EMAG products")
-
-    all_fitness1_products = fetch_all_fitness1_products(
-        api_url=const.FITNESS1_API_URL, api_key=const.FITNESS1_API_KEY
-    )
-    add_log(f"Fetched {len(all_fitness1_products)} Fitness1 products")
-
-    fitness1_related_emag_products_based_on_ean = (
-        util.get_fitness1_related_emag_products_based_on_ean(
-            all_emag_products, all_fitness1_products
-        )
-    )
-    rest_emag_products = [
-        emag_product
-        for emag_product in all_emag_products
-        if emag_product not in fitness1_related_emag_products_based_on_ean
-    ]
-
-    current_emag_products_categories = util.get_current_emag_products_categories(
-        rest_emag_products
-    )
-
-    all_emag_categories = fetch_all_categories_from_categories_list_emag(
-        api_url=util.build_url(const.EMAG_URL, "category", "read"),
-        headers=const.EMAG_HEADERS,
-        categories_list=current_emag_products_categories,
-        pause=1,
-    )
-
-    all_fitness_emag_categories = util.get_fitness_related_emag_categories(
-        all_emag_categories, const.FITNESS_CATEGORIES
-    )
-
-    all_fitness1_categories = util.get_current_fitness1_categories(
-        all_fitness1_products
-    )
-
-    all_emag_categories_names = [
-        emag_category["name"] for emag_category in all_fitness_emag_categories
-    ]
-
-    categories_mapping = util.build_mapping(
-        fitness1_categories=all_fitness1_categories,
-        emag_categories=all_emag_categories_names,
-        threshold=80,
-        keywords_mapping=const.KEYWORDS_MAPPING,
-    )
-    mapped_categories_strings = util.map_fitness1_category_to_emag_category_string(
-        categories_mapping
-    )
-
-    valid_fitness1_products_data = util.get_fitness1_products_with_mapped_categories(
-        all_fitness1_products, mapped_categories_strings
-    )  # used to create emag products
-    valid_fitness1_products = [
-        util.Fitness1Product.from_dict(product)
-        for product in valid_fitness1_products_data
-    ]
-
-    f1_to_emag_categories = util.map_fitness1_category_to_emag_category_data(
-        mapped_categories_strings, all_fitness_emag_categories
-    )
-    all_emag_product_ids = [emag_product["id"] for emag_product in all_emag_products]
-    emag_products: list[util.EmagProduct] = []
-    for fitness1_product in valid_fitness1_products:
-        emag_product = create_emag_product_from_fields(
-            fitness1_product,
-            fitness1_related_emag_products_based_on_ean,
-            all_emag_product_ids,
-            f1_to_emag_categories,
-        )
-        emag_products.append(emag_product)
-    add_log(f"Created {len(emag_products)} EMAG products")
-
-    failed_products = post_emag_product(
-        emag_product_data=[emag_product.to_dict() for emag_product in emag_products],
-        api_url=util.build_url(const.EMAG_URL, "product_offer", "save"),
-        headers=const.EMAG_HEADERS,
-        pause=2,
-    )
-
-    add_log(f"Created {len(emag_products) - len(failed_products)} EMAG products")
-    with open("failed_products.json", "w") as f:
-        json.dump(failed_products, f, indent=4)
-        add_log("Failed products saved to failed_products.json")
-
-
 def update_emag_products(batch_size=50, pause=1):
     all_emag_products = fetch_all_emag_products(
-        api_url=util.build_url(const.EMAG_URL, "product_offer", "read"),
+        api_url=util.build_url(
+            base_url=const.EMAG_URL, resource="product_offer", action="read"
+        ),
         headers=const.EMAG_HEADERS,
         pause=1,
     )
@@ -332,7 +240,9 @@ def update_emag_products(batch_size=50, pause=1):
     for i, batch in enumerate(batched_updated_emag_product_data):
         time.sleep(pause)
         response = requests.post(
-            util.build_url(const.EMAG_URL, "product_offer", "save"),
+            util.build_url(
+                base_url=const.EMAG_URL, resource="product_offer", action="save"
+            ),
             json=batch,
             headers=const.EMAG_HEADERS,
         )
@@ -390,7 +300,9 @@ def run_create_process(pause=1, batch_size=50):
 
     # Step 1: Fetch all EMAG products
     emag_products_result, emag_products_fetched = fetch_all_emag_products(
-        api_url=util.build_url(const.EMAG_URL, "product_offer", "read"),
+        api_url=util.build_url(
+            base_url=const.EMAG_URL, resource="product_offer", action="read"
+        ),
         headers=const.EMAG_HEADERS,
         pause=pause,
     )
@@ -423,7 +335,9 @@ def run_create_process(pause=1, batch_size=50):
 
     # Fetch detailed EMAG category data
     all_emag_categories = fetch_all_categories_from_categories_list_emag(
-        api_url=util.build_url(const.EMAG_URL, "category", "read"),
+        api_url=util.build_url(
+            base_url=const.EMAG_URL, resource="category", action="read"
+        ),
         headers=const.EMAG_HEADERS,
         categories_list=current_emag_categories,
         pause=pause,
@@ -486,7 +400,9 @@ def run_create_process(pause=1, batch_size=50):
     products_data = [product.to_dict() for product in emag_products_created]
     failed_products = post_emag_product(
         emag_product_data=products_data,
-        api_url=util.build_url(const.EMAG_URL, "product_offer", "save"),
+        api_url=util.build_url(
+            base_url=const.EMAG_URL, resource="product_offer", action="save"
+        ),
         headers=const.EMAG_HEADERS,
         pause=pause * 2,
         batch_size=batch_size,
@@ -539,7 +455,9 @@ def run_update_process(pause=1, batch_size=50):
         # Fetch one page of EMAG products
         payload = {"currentPage": page, "itemsPerPage": items_per_page}
         response = requests.post(
-            url=util.build_url(const.EMAG_URL, "product_offer", "read"),
+            url=util.build_url(
+                base_url=const.EMAG_URL, resource="product_offer", action="read"
+            ),
             json=payload,
             headers=const.EMAG_HEADERS,
         )
@@ -597,7 +515,9 @@ def run_update_process(pause=1, batch_size=50):
             time.sleep(pause)
 
             save_response = requests.post(
-                url=util.build_url(const.EMAG_URL, "product_offer", "save"),
+                url=util.build_url(
+                    base_url=const.EMAG_URL, resource="product_offer", action="save"
+                ),
                 json=batch,
                 headers=const.EMAG_HEADERS,
             )
