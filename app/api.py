@@ -9,6 +9,7 @@ from app.services.emag_full_seq import (
     run_update_process,
     fetch_all_emag_products,
     fetch_all_fitness1_products,
+    create_romania_products,
 )
 from app.services import const
 from app.services import util
@@ -203,3 +204,10 @@ def api_get_categories():
     # Return the allowed EMAG categories (from the FitnessCategory table)
     categories = FitnessCategory.query.all()
     return jsonify({"categories": [cat.as_dict() for cat in categories]})
+
+
+# example create romania products
+@api_bp.route("/create/ro", methods=["POST"])
+def api_create_romania_products():
+    create_romania_products()
+    return jsonify({"status": "success", "message": "Romania products created."})

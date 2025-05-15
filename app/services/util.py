@@ -45,6 +45,19 @@ class Fitness1Product:
             data.get("description"),
         )
 
+    def to_dict(self):
+        return {
+            "brand_name": self.brand_name,
+            "product_name": self.product_name,
+            "category": self.category,
+            "image": self.image,
+            "label": self.label,
+            "barcode": self.barcode,
+            "regular_price": self.regular_price,
+            "available": self.available,
+            "description": self.description,
+        }
+
     def __str__(self):
         return f"{self.brand_name} - {self.product_name} - {self.category} - {self.image} - {self.label} - {self.barcode} - {self.regular_price} - {self.available}"
 
@@ -134,6 +147,60 @@ def split_list(lst: list, batch_size=15):
     >>     print(batch)
     """
     return [lst[i : i + batch_size] for i in range(0, len(lst), batch_size)]
+
+
+def create_product_name(product: dict) -> str:
+    """
+    Constructs a name string from product dictionary.
+    Only includes non-empty parts to avoid ambiguity.
+    """
+    parts = [
+        product.get("brand_name", ""),
+        product.get("product_name", "").replace("|", ""),
+        product.get("option", ""),
+        product.get("pack", ""),
+    ]
+
+    # Filter out empty or None values and strip whitespace
+    parts = [part.strip() for part in parts if part and part.strip()]
+
+    return ", ".join(parts)
+
+
+def split_text_by_sentences(text, max_length=500):
+    import html
+    import re
+
+    decoded_text = html.unescape(text)
+    sentences = re.findall(r"[^.!?]+[.!?]+|[^.!?]+$", decoded_text)
+
+    chunks = []
+    current_chunk = ""
+
+    for sentence in sentences:
+        if len(sentence) > max_length:
+            # Split the long sentence into smaller chunks
+            words = sentence.split()
+            temp = ""
+            for word in words:
+                if len(temp) + len(word) + 1 > max_length:
+                    chunks.append(temp.strip())
+                    temp = word + " "
+                else:
+                    temp += word + " "
+            if temp:
+                chunks.append(temp.strip())
+        else:
+            if len(current_chunk) + len(sentence) > max_length:
+                chunks.append(current_chunk.strip())
+                current_chunk = sentence
+            else:
+                current_chunk += sentence
+
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+
+    return chunks
 
 
 def get_fitness1_related_emag_products_based_on_ean(
