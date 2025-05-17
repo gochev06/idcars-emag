@@ -1,6 +1,7 @@
 import html
 import re
 import statistics
+from typing import Dict, List
 from fuzzywuzzy import fuzz
 
 
@@ -111,6 +112,7 @@ class EmagProduct:
         self.max_sale_price: int = 9999
         self.vat_id: int = 6
         self.description: str = None
+        self.characteristics: List[Dict] = None
 
     def to_dict(self):
         return {
@@ -128,13 +130,14 @@ class EmagProduct:
             "stock": [self.stock.to_dict()],
             "vat_id": self.vat_id,
             "description": self.description,
+            "characteristics": self.characteristics,
         }
 
     def __str__(self):
-        return f"{self.id} | {self.category_id} | {self.ean} | {self.name} | {self.part_number} | {self.brand} | {self.images} | {self.status} | {self.sale_price} | {self.stock} | {self.min_sale_price} | {self.max_sale_price} | {self.vat_id} | {self.description}"
+        return f"{self.id} | {self.category_id} | {self.ean} | {self.name} | {self.part_number} | {self.brand} | {self.images} | {self.status} | {self.sale_price} | {self.stock} | {self.min_sale_price} | {self.max_sale_price} | {self.vat_id} | {self.description} | {self.characteristics}"
 
     def __repr__(self):
-        return f"{self.id} | {self.category_id} | {self.ean} | {self.name} | {self.part_number} | {self.brand} | {self.images} | {self.status} | {self.sale_price} | {self.stock} | {self.min_sale_price} | {self.max_sale_price} | {self.vat_id} | {self.description}"
+        return f"{self.id} | {self.category_id} | {self.ean} | {self.name} | {self.part_number} | {self.brand} | {self.images} | {self.status} | {self.sale_price} | {self.stock} | {self.min_sale_price} | {self.max_sale_price} | {self.vat_id} | {self.description} | {self.characteristics}"
 
 
 def split_list(lst: list, batch_size=15):
