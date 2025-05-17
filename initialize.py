@@ -1,15 +1,39 @@
 import time
+import os
+from typing import Dict, List, Literal, Tuple
+from dotenv import load_dotenv
 import requests
+from openai import AsyncOpenAI
 from app import create_app, db
 from app.models import FitnessCategory, Mapping
+import traceback
+import asyncio
+import json
+import logging
+from tenacity import (
+    AsyncRetrying,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+    RetryError,
+)
+from openai import RateLimitError
 from app.services import const, util
 from app.services.emag_full_seq import (
     fetch_all_categories_from_categories_list_emag,
+    fetch_categories_characteristics_dict,
     create_emag_product_from_fields,
     fetch_all_emag_products,
     fetch_all_fitness1_products,
     post_emag_product,
 )
+
+# Load environment variables from .env file if available
+load_dotenv()
+openai_api_key = os.environ.get("OPENAI_API_KEY")
+client = AsyncOpenAI(api_key=openai_api_key, base_url="https://api.deepseek.com")
+
+logger = logging.getLogger(__name__)
 
 
 def populate_fitness_categories():
@@ -215,7 +239,236 @@ def set_emag_categories_ids():
     print("Categories IDs updated successfully.")
 
 
-def create_romania_products():
+async def safe_acreate(**kwargs):
+    """
+    Retries only on RateLimitError (or timeout), up to 5 times;
+    reraise any other exception immediately.
+    """
+    async for attempt in AsyncRetrying(
+        retry=retry_if_exception_type(RateLimitError),
+        wait=wait_exponential(min=1, max=10),
+        stop=stop_after_attempt(5),
+        reraise=True,
+    ):
+        with attempt:
+            return await client.chat.completions.create(**kwargs)
+
+
+async def process_product(
+    prod: util.EmagProduct, sem: asyncio.Semaphore, category: Dict
+):
+    prd_id = prod.id
+    async with sem:
+        prd_str = prod.name
+        # 1) first API call: translation
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": "You are a senior e-commerce localization specialist with native-level Bulgarian and Romanian. "
+                    + "You know how to preserve marketing tone, structure, and SEO-keywords when translating product metadata. "
+                    + "When asked, you also act as a category expert and pick the most relevant product attributes from a given list.",
+                },
+                {
+                    "role": "user",
+                    "content": "Here is a product in Bulgarian. 1) Translate **both** its name and description into Romanian.  "
+                    + "2) Output exactly this JSON schema and nothing else:\n\n"
+                    + "```json\n"
+                    + "{\n"
+                    + '  "product_name": string,     // the translated name\n'
+                    + '  "description": string       // the translated description\n'
+                    + "}\n"
+                    + "```\n\n"
+                    + "Product (BG):\n"
+                    + "- Name: “"
+                    + prd_str
+                    + "”\n"
+                    + "- Description: “"
+                    + prod.description
+                    + "”"
+                    "Don't insert literal tabs, newlines or other control characters inside your JSON — if you need one, use the proper JSON escape (\\t, \\n, etc.).",
+                },
+            ]
+            resp1 = await safe_acreate(
+                model="deepseek-chat",
+                messages=messages,
+                stream=False,
+                response_format={"type": "json_object"},
+                temperature=1.0,
+            )
+        except RetryError as re:
+            # all retries failed on RateLimitError
+            logger.error(
+                f"[{prd_id}] translation hit rate limit 5×: {re}", exc_info=True
+            )
+            return None
+        except Exception as e:
+            # BAD: you saw an AttributeError here
+            logger.error(
+                f"[{prd_id}] translation unexpected error: {e!r}", exc_info=True
+            )
+            return None
+
+        # **Inspect** the raw resp1 before you do .choices[0].message.content
+        logger.debug(f"[{prd_id}] raw resp1: {resp1!r}")
+
+        # guard against missing attributes
+        try:
+            text1 = resp1.choices[0].message.content
+        except AttributeError as e:
+            # maybe resp1.choices[0].message is a dict, not an object
+            print("inside AttributeError")
+            print("❗️ JSON error:", e)
+            print("❗️ Raw text follows\n>>>")
+            print(text1)
+            print("<<< End raw")
+            traceback.print_exc()
+
+            text1 = resp1.choices[0].message.get("content")
+            if text1 is None:
+                raise
+
+        # parse JSON
+        try:
+            name_desc = json.loads(text1)
+        except json.JSONDecodeError as e:
+            # Log full exception + the raw text so you can see what's malformed
+            logger.error(
+                f"[{prd_id}] JSON parse error at line {e.lineno}, column {e.colno}: {e.msg}\n"
+                f"Raw response was:\n{text1!r}",
+                exc_info=True,
+            )
+            traceback.print_exc()
+            print(f"[{prd_id}] ❗️ Raw response causing JSONDecodeError:\n{text1!r}\n")
+            e.raw = text1
+            # Optionally, re-raise or return None so you can skip this one
+            raise
+
+        # 2) second API call: characteristics
+        try:
+            messages.append({"role": "assistant", "content": text1})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": """Now, based on the translated product name and description, please review this JSON array of category characteristics and pick the most relevant ones for the product.
+                    All characteristics must have have a value, or the documentation later will fail.
+
+        Return **only** a single JSON object matching this schema:
+
+        ```json
+        {
+        "characteristics": [
+            {
+            "id": <number>,          // e.g. 6556
+            "tag": <string|null>,    // e.g. null
+            "value": "<string>"      // e.g. "Barbati"
+            }
+        ]
+        }
+        ```
+        Make sure to include the "characteristics" key in the output JSON.""",
+                }
+            )
+            messages.append(
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        category["characteristics"], ensure_ascii=False
+                    ),
+                }
+            )
+            resp2 = await safe_acreate(
+                model="deepseek-chat",
+                messages=messages,
+                stream=False,
+                response_format={"type": "json_object"},
+                temperature=1.0,
+            )
+        except RetryError as re:
+            logger.error(
+                f"[{prd_id}] characteristics hit rate limit 5x: {re}", exc_info=True
+            )
+            return None
+        except Exception as e:
+            logger.error(
+                f"[{prd_id}] characteristics unexpected error: {e!r}", exc_info=True
+            )
+            return None
+
+        logger.debug(f"[{prd_id}] raw resp2: {resp2!r}")
+
+        try:
+            text2 = resp2.choices[0].message.content
+        except AttributeError:
+            text2 = resp2.choices[0].message.get("content")
+            if text2 is None:
+                raise
+
+        # parse JSON
+        try:
+            char_json = json.loads(text2)
+        except json.JSONDecodeError as e:
+            # Log full exception + the raw text so you can see what's malformed
+            logger.error(
+                f"[{prd_id}] JSON parse error at line {e.lineno}, column {e.colno}: {e.msg}\n"
+                f"Raw response was:\n{text2!r}",
+                exc_info=True,
+            )
+            traceback.print_exc()
+            print(f"[{prd_id}] ❗️ Raw response causing JSONDecodeError:\n{text2!r}\n")
+            e.raw = text2
+            # Optionally, re-raise or return None so you can skip this one
+            raise
+
+        # set the new name, descrition and characteristics
+        prod.name = name_desc["product_name"]
+        prod.description = name_desc["description"]
+        prod.characteristics = char_json["characteristics"]
+
+        return prod
+
+
+async def run_process_all(
+    emag_products: List[util.EmagProduct],
+    all_emag_categories: Dict[int, List[Dict]],
+    max_concurrent: int = 100,
+) -> Tuple[List[Dict], List[Dict]]:
+    """
+    Given a list of partially built EMAG product objects and the category lookup,
+    spin up tasks to translate & pick characteristics, and return the list of
+    result-dicts (or None on failure), in the same order.
+
+    Returns a tuple of (translated, failed_products).
+    """
+    failed_products = []
+    translated = []
+    sem = asyncio.Semaphore(max_concurrent)
+    tasks = []
+    for prod in emag_products:
+        cat_id = prod.category_id
+        category = all_emag_categories.get(cat_id, {})
+        tasks.append(asyncio.create_task(process_product(prod, sem, category)))
+    all_results = await asyncio.gather(*tasks, return_exceptions=False)
+    for prod, res in zip(emag_products, all_results):
+        if isinstance(res, Exception):
+            # log or retry separately
+            print(f"❌ {prod.id} failed: {res}")
+            if hasattr(res, "raw"):
+                print("   → raw content was:\n", res.raw)
+            traceback.print_exception(type(res), res, res.__traceback__)
+            failed_products.append(res.to_dict())
+        else:
+            translated.append(res.to_dict())
+
+    print(f"✅ {len(translated)} products processed successfully.")
+    print(f"example: {translated[0]}")  # just to see the structure
+    print(f"Failed products: {len(failed_products)}.")  # just to see the structure
+    if len(failed_products) > 0:
+        print("example failed product:", failed_products[0])
+    return translated, failed_products
+
+
+def create_romania_products_initial():
     # Step 1: Fetch all EMAG products
     emag_products_result, emag_products_fetched = fetch_all_emag_products(
         api_url=util.build_url(
@@ -254,7 +507,9 @@ def create_romania_products():
     print(f"Fetched {len(current_emag_categories)} EMAG categories.")
 
     # Fetch detailed EMAG category data
-    all_emag_categories = fetch_all_categories_from_categories_list_emag(
+    # this is a dict
+    # {category_id: characteristics_data}
+    all_emag_categories = fetch_categories_characteristics_dict(
         api_url=util.build_url(
             base_url=const.EMAG_URL,
             url_ext="ro",
@@ -265,6 +520,7 @@ def create_romania_products():
         categories_list=current_emag_categories,
     )
     print(f"Fetched {len(all_emag_categories)} EMAG categories.")
+    print(f"Example category data: {list(all_emag_categories.values())[0]!r}.")
 
     name_to_id = {cat.name: cat.emag_category_id for cat in FitnessCategory.query.all()}
     fitness1_to_emag_id = {
@@ -309,19 +565,13 @@ def create_romania_products():
             fitness1_product.category, None
         )
         emag_product.part_number = f"IDCARS-{emag_product.id}"
+        emag_product.vat_id = 2002
 
         # Now, create the product name
         name_str = create_product_name(fitness1_product.to_dict())
-        # initialize the translator
-        from translate import Translator
-
-        translator = Translator(from_lang="bg", to_lang="ro")
-        emag_product.name = translator.translate(name_str)
-        print(f"Translated name: {emag_product.name}")
-        descr_chunks = util.split_text_by_sentences(emag_product.description)
-        translated_chunks = [translator.translate(chunk) for chunk in descr_chunks]
-        emag_product.description = " ".join(translated_chunks)
-        print(f"Translated description: {emag_product.description}")
+        # For now, set the name and description to the same string, which will be used for translation
+        emag_product.name = name_str
+        emag_product.description = name_str
         # Convert the price  from bgn to ron
         from currency_converter import CurrencyConverter
 
@@ -335,15 +585,39 @@ def create_romania_products():
 
         emag_products_created.append(emag_product)
 
+    print(
+        f"Prepared {len(emag_products_created)} EMAG product objects for translation/characteristics."
+    )
+    updated_emag_products: List[Dict]
+    failed_products: List[Dict]
+    updated_emag_products, failed_products = asyncio.run(
+        run_process_all(emag_products_created, all_emag_categories)
+    )
+    # save the translated products to a json file
+    with open("updated_emag_products.json", "w", encoding="utf-8") as f:
+        json.dump(updated_emag_products, f, ensure_ascii=False, indent=4)
+    print("Updated products saved to updated_emag_products.json")
+    # save the failed products to a json file
+    with open("failed_emag_products.json", "w", encoding="utf-8") as f:
+        json.dump(failed_products, f, ensure_ascii=False, indent=4)
+    print("Failed products saved to failed_emag_products.json")
+
     print(f"Created {len(emag_products_created)} EMAG product objects.")
     print("example product:", emag_products_created[0])
     print("Example product data:", emag_products_created[0].to_dict())
 
-    # # Step 10: Post the created EMAG products in batches
-    # # Note: The post_emag_product function should already handle splitting into batches.
-    products_data = [product.to_dict() for product in emag_products_created]
+    # return {
+    #     "emag_products_fetched": len(emag_products_fetched),
+    #     "emag_products_created": len(emag_products_created),
+    #     "emag_products_updated": len(updated_emag_products),
+    #     "emag_products_failed": len(failed_products),
+    # }
+
+    # # # Step 10: Post the created EMAG products in batches
+    # # # Note: The post_emag_product function should already handle splitting into batches.
+    # products_data = [product.to_dict() for product in emag_products_created]
     failed_products = post_emag_product(
-        emag_product_data=products_data,
+        emag_product_data=updated_emag_products,
         api_url=util.build_url(
             base_url=const.EMAG_URL,
             url_ext="ro",
@@ -354,17 +628,21 @@ def create_romania_products():
         batch_size=50,
     )
 
-    successful_count = len(emag_products_created) - len(failed_products)
+    successful_count = len(updated_emag_products) - len(failed_products)
     print(
         f"Successfully posted {successful_count} EMAG products, {len(failed_products)} failed."
     )
+    # save the failed posted products to a json file
+    with open("failed_posted_emag_products.json", "w", encoding="utf-8") as f:
+        json.dump(failed_products, f, ensure_ascii=False, indent=4)
+    print("Failed posted products saved to failed_posted_emag_products.json")
 
-    # # Instead of writing to a file, return a summary dictionary
+    # # # Instead of writing to a file, return a summary dictionary
     return {
         "emag_products_fetched": len(emag_products_fetched),
         "fitness1_products_fetched": len(fitness1_products),
         "emag_categories_fetched": len(all_emag_categories),
-        "emag_products_created": len(emag_products_created),
+        "updated_emag_products": len(updated_emag_products),
         "successful_creations": successful_count,
         "failed_products": failed_products,  # List of failed batch details
     }
@@ -374,9 +652,6 @@ if __name__ == "__main__":
     app = create_app()
     with app.app_context():
         print("Running initialize.py...")
-        # 1) Build a name → emag_category_id dict
-        res = create_romania_products()
-        print(res)
         # set_emag_categories_ids()
         # update_emag_fitness_products_names()
         # populate_fitness_categories()
