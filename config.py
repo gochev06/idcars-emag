@@ -28,3 +28,4 @@ class Config:
     }
     APSCHEDULER_JOB_DEFAULTS = {"coalesce": False, "max_instances": 1}
     APSCHEDULER_TIMEZONE = "Europe/Sofia"
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
