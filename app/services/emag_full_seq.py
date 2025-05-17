@@ -147,6 +147,63 @@ def fetch_all_categories_from_categories_list_emag(
     return all_categories
 
 
+def fetch_categories_characteristics_dict(
+    api_url: str, headers: dict, categories_list: list, pause: int = 0
+) -> dict:
+    """
+    Fetches characteristics for each category in categories_list by ID,
+    returning a dict where keys are category IDs and values are the
+    'characteristics' payload from the API.
+
+    Args:
+        api_url (str): The API endpoint URL.
+        headers (dict): HTTP headers to include with each request.
+        categories_list (list): A list of category IDs to fetch.
+        pause (int, optional): Seconds to sleep between requests. Defaults to 0.
+
+    Returns:
+        dict: { category_id: [characteristic_dict, ...], … }
+    """
+    categories_by_id = {}
+
+    for category_id in categories_list:
+        payload = {"id": category_id}
+        response = requests.post(api_url, json=payload, headers=headers)
+
+        # HTTP‐level error?
+        if response.status_code != 200:
+            add_log(
+                f"Request failed for category {category_id}: HTTP {response.status_code}"
+            )
+            continue
+
+        data = response.json()
+        # API‐level error?
+        if data.get("isError", False):
+            add_log(
+                f"API error for category {category_id}: "
+                f"messages={data.get('messages')} errors={data.get('errors')}"
+            )
+            continue
+
+        results = data.get("results", [])
+        if not results:
+            add_log(f"No results for category {category_id}")
+            continue
+
+        # Assuming each result is a category object; map its id → characteristics
+        for cat in results:
+            cat_id = cat.get("id")
+            chars = cat.get("characteristics", [])
+            categories_by_id[cat_id] = {"characteristics": chars}
+            add_log(f"Fetched {len(chars)} characteristics for category {cat_id}")
+
+        time.sleep(pause)
+
+    add_log(f"Fetched characteristics for {len(categories_by_id)} categories")
+    return categories_by_id
+
+
 def create_emag_product_from_fields(
     fitness1_product: util.Fitness1Product,
     fitness1_related_emag_products_based_on_ean: list[dict],
@@ -512,6 +569,160 @@ def run_update_process(pause=1, batch_size=50, emag_url_ext="bg"):
                     {
                         "id": emag_product["id"],
                         "sale_price": fitness1_product["regular_price"],
+                        "status": fitness1_product["available"],
+                        "vat_id": 6,
+                    }
+                )
+
+        # Split into smaller batches
+        batched_updates = util.split_list(update_batch, batch_size)
+
+        # Send each batch
+        for i, batch in enumerate(batched_updates):
+            if not batch:
+                continue
+            add_log(f"Posting batch {i+1} of {len(batched_updates)} on page {page}...")
+            time.sleep(pause)
+
+            save_response = requests.post(
+                url=util.build_url(
+                    base_url=const.EMAG_URL,
+                    url_ext=emag_url_ext,
+                    resource="product_offer",
+                    action="save",
+                ),
+                json=batch,
+                headers=const.EMAG_HEADERS,
+            )
+
+            if not save_response.ok:
+                add_log(
+                    f"Save failed for batch {i+1} on page {page}. Status: {save_response.status_code}"
+                )
+                failed_batches.append(
+                    {
+                        "page": page,
+                        "batch": i + 1,
+                        "status_code": save_response.status_code,
+                        "response": save_response.text,
+                    }
+                )
+                continue
+
+            save_data = util.EmagResponse(save_response.json())
+            if save_data.is_error:
+                add_log(
+                    f"Errors in batch {i+1} on page {page}: {save_data.messages} {save_data.errors}"
+                )
+                failed_batches.append(
+                    {
+                        "page": page,
+                        "batch": i + 1,
+                        "errors": save_data.errors,
+                        "messages": save_data.messages,
+                    }
+                )
+            else:
+                total_updates += len(batch)
+
+        page += 1  # go to next page
+
+    add_log(
+        f"Update process completed: {total_updates} successful updates, {len(failed_batches)} failed batches."
+    )
+
+    return {
+        "fitness1_products_fetched": len(fitness1_products),
+        "emag_products_fetched": total_emag_products,
+        "updated_entries": total_updates,
+        "failed_updates": failed_batches,
+    }
+
+
+def run_update_romania_process(pause=1, batch_size=50, emag_url_ext="ro"):
+    """
+    Optimized version of the update process with streaming.
+    """
+    from currency_converter import CurrencyConverter
+
+    c = CurrencyConverter()
+
+    add_log("Starting product update process...")
+
+    # Step 1: Fetch all Fitness1 products once
+    fitness1_products = fetch_all_fitness1_products(
+        api_url=const.FITNESS1_API_URL, api_key=const.FITNESS1_API_KEY
+    )
+    if not fitness1_products:
+        add_log("Failed to fetch Fitness1 products.")
+        return {"fitness1_products_fetched": 0}
+
+    add_log(f"Fetched {len(fitness1_products)} Fitness1 products.")
+
+    # Create a lookup table for Fitness1 products by barcode
+    fitness1_index = {product["barcode"]: product for product in fitness1_products}
+
+    # Step 2: Stream EMAG products page by page
+    page = 1
+    items_per_page = 100  # or whatever you want
+    total_emag_products = 0
+    total_updates = 0
+    failed_batches = []
+
+    while True:
+        # Fetch one page of EMAG products
+        payload = {"currentPage": page, "itemsPerPage": items_per_page}
+        response = requests.post(
+            url=util.build_url(
+                base_url=const.EMAG_URL,
+                url_ext=emag_url_ext,
+                resource="product_offer",
+                action="read",
+            ),
+            json=payload,
+            headers=const.EMAG_HEADERS,
+        )
+
+        if response.status_code != 200:
+            add_log(
+                f"Failed to fetch EMAG products at page {page}. Status: {response.status_code}"
+            )
+            break
+
+        data = response.json()
+
+        if data.get("isError", False):
+            add_log(f"Error fetching page {page}: {data.get('messages', [])}")
+            break
+
+        emag_products = data.get("results", [])
+
+        if not emag_products:
+            add_log(f"No more products found on page {page}. Ending pagination.")
+            break
+
+        total_emag_products += len(emag_products)
+        add_log(f"Fetched {len(emag_products)} EMAG products on page {page}.")
+
+        # Map EMAG products to Fitness1 products
+        update_batch = []
+        for emag_product in emag_products:
+            ean_list = emag_product.get("ean", [])
+            if not ean_list:
+                continue  # skip products without EAN
+
+            barcode = ean_list[0]
+            fitness1_product = fitness1_index.get(barcode)
+
+            if fitness1_product:
+                # Build update entry
+                update_batch.append(
+                    {
+                        "id": emag_product["id"],
+                        "sale_price": round(
+                            c.convert(fitness1_product["regular_price"], "BGN", "RON"),
+                            2,
+                        ),
                         "status": fitness1_product["available"],
                         "vat_id": 6,
                     }
