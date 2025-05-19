@@ -8,6 +8,7 @@ from app.services.emag_full_seq import (
     fetch_all_emag_products,
     fetch_all_fitness1_products,
     run_create_process,
+    run_update_hungarian_process,
     run_update_process,
     run_update_romania_process,
 )
@@ -217,7 +218,7 @@ def api_update_romania_products():
     pause = data.get("pause", 1)
     batch_size = data.get("batch_size", 50)
 
-    add_log("API /update endpoint called.")
+    add_log("API /update/ro endpoint called.")
 
     def background_update():
         global update_job_status
@@ -226,6 +227,56 @@ def api_update_romania_products():
             update_job_status["last_message"] = "Update process started."
 
             summary = run_update_romania_process(pause=pause, batch_size=batch_size)
+
+            update_job_status["running"] = False
+            update_job_status["last_message"] = (
+                f"Update completed. {summary['updated_entries']} entries updated."
+            )
+            add_log(f"Background update finished. Summary: {summary}")
+
+        except Exception as e:
+            update_job_status["running"] = False
+            update_job_status["last_message"] = f"Update failed: {str(e)}"
+            add_log(f"Error during background update: {str(e)}")
+
+    try:
+        thread = threading.Thread(target=background_update)
+        thread.start()
+
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "message": "Update process started in background.",
+                }
+            ),
+            202,
+        )
+    except Exception as e:
+        add_log(f"Error launching background update: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@api_bp.route("/update/hu", methods=["POST"])
+def api_update_hungary_products():
+    """
+    Starts the product update process in a background thread.
+    """
+    global update_job_status
+
+    data = request.get_json() or {}
+    pause = data.get("pause", 1)
+    batch_size = data.get("batch_size", 50)
+
+    add_log("API /update/hu endpoint called.")
+
+    def background_update():
+        global update_job_status
+        try:
+            update_job_status["running"] = True
+            update_job_status["last_message"] = "Update process started."
+
+            summary = run_update_hungarian_process(pause=pause, batch_size=batch_size)
 
             update_job_status["running"] = False
             update_job_status["last_message"] = (
