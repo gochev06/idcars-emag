@@ -793,156 +793,155 @@ def run_update_romania_process(pause=1, batch_size=50, emag_url_ext="ro"):
     }
 
 
-def create_romania_products():
-    # Step 1: Fetch all EMAG products
-    emag_products_result, emag_products_fetched = fetch_all_emag_products(
-        api_url=util.build_url(
-            base_url=const.EMAG_URL,
-            url_ext="ro",
-            resource="product_offer",
-            action="read",
-        ),
-        headers=const.EMAG_HEADERS,
-    )
-    if not emag_products_result:
-        add_log("Failed to fetch EMAG products.")
-        return {"emag_products_fetched": len(emag_products_fetched)}
-    add_log(f"Fetched {len(emag_products_fetched)} EMAG products.")
+def run_update_hungarian_process(pause=1, batch_size=50, emag_url_ext="hu"):
+    """
+    Optimized version of the update process with streaming.
+    """
+    from currency_converter import CurrencyConverter
 
-    # Step 2: Fetch all Fitness1 products
+    c = CurrencyConverter()
+
+    add_log("Starting product update process...")
+
+    # Step 1: Fetch all Fitness1 products once
     fitness1_products = fetch_all_fitness1_products(
         api_url=const.FITNESS1_API_URL, api_key=const.FITNESS1_API_KEY
     )
+    if not fitness1_products:
+        add_log("Failed to fetch Fitness1 products.")
+        return {"fitness1_products_fetched": 0}
+
     add_log(f"Fetched {len(fitness1_products)} Fitness1 products.")
 
-    # Step 3: Determine related EMAG products based on matching EAN (barcode)
-    fitness1_related_emag_products = (
-        util.get_fitness1_related_emag_products_based_on_ean(
-            emag_products_fetched, fitness1_products
+    # Create a lookup table for Fitness1 products by barcode
+    fitness1_index = {product["barcode"]: product for product in fitness1_products}
+
+    # Step 2: Stream EMAG products page by page
+    page = 1
+    items_per_page = 100  # or whatever you want
+    total_emag_products = 0
+    total_updates = 0
+    failed_batches = []
+
+    while True:
+        # Fetch one page of EMAG products
+        payload = {"currentPage": page, "itemsPerPage": items_per_page}
+        response = requests.post(
+            url=util.build_url(
+                base_url=const.EMAG_URL,
+                url_ext=emag_url_ext,
+                resource="product_offer",
+                action="read",
+            ),
+            json=payload,
+            headers=const.EMAG_HEADERS,
         )
-    )
-    add_log(
-        f"Fetched {len(fitness1_related_emag_products)} Fitness1 related EMAG products."
-    )
 
-    # Step 4: Get current EMAG categories from the remaining products
-    current_emag_categories = util.get_current_emag_products_categories(
-        emag_products_fetched
-    )
-    add_log(f"Fetched {len(current_emag_categories)} EMAG categories.")
-
-    # Fetch detailed EMAG category data
-    all_emag_categories = fetch_all_categories_from_categories_list_emag(
-        api_url=util.build_url(
-            base_url=const.EMAG_URL,
-            url_ext="ro",
-            resource="category",
-            action="read",
-        ),
-        headers=const.EMAG_HEADERS,
-        categories_list=current_emag_categories,
-    )
-    add_log(f"Fetched {len(all_emag_categories)} EMAG categories.")
-
-    name_to_id = {cat.name: cat.emag_category_id for cat in FitnessCategory.query.all()}
-    fitness1_to_emag_id = {
-        mapping.fitness1_category: name_to_id.get(mapping.emag_category)
-        for mapping in Mapping.query.all()
-    }
-
-    # Step 7: Filter Fitness1 products to include only those with a mapped EMAG category
-    valid_fitness1_products_data = util.get_fitness1_products_with_mapped_categories(
-        fitness1_products, fitness1_to_emag_id
-    )
-    valid_fitness1_products = [
-        util.Fitness1Product.from_dict(product)
-        for product in valid_fitness1_products_data
-    ]
-
-    # Step 8: Map each Fitness1 product to its corresponding EMAG category data
-    # f1_to_emag_categories = util.map_fitness1_category_to_emag_category_data(
-    #     mapped_categories_strings, all_fitness_emag_categories
-    # )
-
-    # # Get all existing EMAG product IDs (for generating a valid new ID if needed)
-    all_emag_product_ids = [product["id"] for product in emag_products_fetched]
-
-    # # Step 9: Create new EMAG products by merging data from Fitness1 with EMAG category info
-    emag_products_created = []
-    for fitness1_product in valid_fitness1_products:
-        emag_product = util.create_emag_product_from_fitness1_product(fitness1_product)
-        if emag_product.ean in [
-            product["ean"][0] for product in fitness1_related_emag_products
-        ]:
-            # get the id of the found product and set it to the emag product
-            emag_product.id = util.get_emag_product_id_by_ean(
-                emag_product.ean, fitness1_related_emag_products
+        if response.status_code != 200:
+            add_log(
+                f"Failed to fetch EMAG products at page {page}. Status: {response.status_code}"
             )
-            emag_product.part_number = util.get_emag_part_number_by_ean(
-                emag_product.ean, fitness1_related_emag_products
+            break
+
+        data = response.json()
+
+        if data.get("isError", False):
+            add_log(f"Error fetching page {page}: {data.get('messages', [])}")
+            break
+
+        emag_products = data.get("results", [])
+
+        if not emag_products:
+            add_log(f"No more products found on page {page}. Ending pagination.")
+            break
+
+        total_emag_products += len(emag_products)
+        add_log(f"Fetched {len(emag_products)} EMAG products on page {page}.")
+
+        # Map EMAG products to Fitness1 products
+        update_batch = []
+        for emag_product in emag_products:
+            ean_list = emag_product.get("ean", [])
+            if not ean_list:
+                continue  # skip products without EAN
+
+            barcode = ean_list[0]
+            fitness1_product = fitness1_index.get(barcode)
+
+            if fitness1_product:
+                # Build update entry
+                update_batch.append(
+                    {
+                        "id": emag_product["id"],
+                        "sale_price": round(
+                            c.convert(fitness1_product["regular_price"], "BGN", "HUF"),
+                            2,
+                        ),
+                        "status": fitness1_product["available"],
+                        "vat_id": 6,
+                    }
+                )
+
+        # Split into smaller batches
+        batched_updates = util.split_list(update_batch, batch_size)
+
+        # Send each batch
+        for i, batch in enumerate(batched_updates):
+            if not batch:
+                continue
+            add_log(f"Posting batch {i+1} of {len(batched_updates)} on page {page}...")
+            time.sleep(pause)
+
+            save_response = requests.post(
+                url=util.build_url(
+                    base_url=const.EMAG_URL,
+                    url_ext=emag_url_ext,
+                    resource="product_offer",
+                    action="save",
+                ),
+                json=batch,
+                headers=const.EMAG_HEADERS,
             )
-        else:
-            emag_product.id = util.get_valid_emag_product_id(all_emag_product_ids)
-        emag_product.category_id = fitness1_to_emag_id.get(
-            fitness1_product.category, None
-        )
-        emag_product.part_number = f"IDCARS-{emag_product.id}"
 
-        # Now, create the product name
-        name_str = util.create_product_name(fitness1_product.to_dict())
-        # initialize the translator
-        from translate import Translator
+            if not save_response.ok:
+                add_log(
+                    f"Save failed for batch {i+1} on page {page}. Status: {save_response.status_code}"
+                )
+                failed_batches.append(
+                    {
+                        "page": page,
+                        "batch": i + 1,
+                        "status_code": save_response.status_code,
+                        "response": save_response.text,
+                    }
+                )
+                continue
 
-        translator = Translator(from_lang="bg", to_lang="ro")
-        emag_product.name = translator.translate(name_str)
-        add_log(f"Translated name: {emag_product.name}")
-        descr_chunks = util.split_text_by_sentences(emag_product.description)
-        translated_chunks = [translator.translate(chunk) for chunk in descr_chunks]
-        emag_product.description = " ".join(translated_chunks)
-        add_log(f"Translated description: {emag_product.description}")
-        # Convert the price  from bgn to ron
-        from currency_converter import CurrencyConverter
+            save_data = util.EmagResponse(save_response.json())
+            if save_data.is_error:
+                add_log(
+                    f"Errors in batch {i+1} on page {page}: {save_data.messages} {save_data.errors}"
+                )
+                failed_batches.append(
+                    {
+                        "page": page,
+                        "batch": i + 1,
+                        "errors": save_data.errors,
+                        "messages": save_data.messages,
+                    }
+                )
+            else:
+                total_updates += len(batch)
 
-        c = CurrencyConverter()
-        emag_product.sale_price = round(
-            c.convert(emag_product.sale_price, "BGN", "RON"), 2
-        )
-        add_log(
-            f"Converted price: {emag_product.sale_price} RON (from {fitness1_product.regular_price} BGN)"
-        )
+        page += 1  # go to next page
 
-        emag_products_created.append(emag_product)
-
-    add_log(f"Created {len(emag_products_created)} EMAG product objects.")
-    add_log("example product:", emag_products_created[0])
-    add_log("Example product data:", emag_products_created[0].to_dict())
-
-    # # Step 10: Post the created EMAG products in batches
-    # # Note: The post_emag_product function should already handle splitting into batches.
-    products_data = [product.to_dict() for product in emag_products_created]
-    failed_products = post_emag_product(
-        emag_product_data=products_data,
-        api_url=util.build_url(
-            base_url=const.EMAG_URL,
-            url_ext="ro",
-            resource="product_offer",
-            action="save",
-        ),
-        headers=const.EMAG_HEADERS,
-        batch_size=50,
-    )
-
-    successful_count = len(emag_products_created) - len(failed_products)
     add_log(
-        f"Successfully posted {successful_count} EMAG products, {len(failed_products)} failed."
+        f"Update process completed: {total_updates} successful updates, {len(failed_batches)} failed batches."
     )
 
-    # # Instead of writing to a file, return a summary dictionary
     return {
-        "emag_products_fetched": len(emag_products_fetched),
         "fitness1_products_fetched": len(fitness1_products),
-        "emag_categories_fetched": len(all_emag_categories),
-        "emag_products_created": len(emag_products_created),
-        "successful_creations": successful_count,
-        "failed_products": failed_products,  # List of failed batch details
+        "emag_products_fetched": total_emag_products,
+        "updated_entries": total_updates,
+        "failed_updates": failed_batches,
     }
