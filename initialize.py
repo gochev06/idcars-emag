@@ -259,9 +259,9 @@ async def process_product(
     lang: str = "ro",
 ):
     if lang == "ro":
-        language = "ro"
+        language = "Romanian"
     elif lang == "hu":
-        language = "hu"
+        language = "Hungarian"
     prd_id = prod.id
     async with sem:
         prd_str = prod.name
@@ -347,7 +347,7 @@ async def process_product(
             print(f"[{prd_id}] ❗️ Raw response causing JSONDecodeError:\n{text1!r}\n")
             e.raw = text1
             # Optionally, re-raise or return None so you can skip this one
-            raise
+            return None
 
         # 2) second API call: characteristics
         try:
@@ -423,7 +423,7 @@ async def process_product(
             print(f"[{prd_id}] ❗️ Raw response causing JSONDecodeError:\n{text2!r}\n")
             e.raw = text2
             # Optionally, re-raise or return None so you can skip this one
-            raise
+            return None
 
         # set the new name, descrition and characteristics
         prod.name = name_desc["product_name"]
@@ -464,10 +464,12 @@ async def run_process_all(
             traceback.print_exception(type(res), res, res.__traceback__)
             failed_products.append(res.to_dict())
         else:
-            translated.append(res.to_dict())
+            if res is not None:
+                translated.append(res.to_dict())
 
     print(f"✅ {len(translated)} products processed successfully.")
-    print(f"example: {translated[0]}")  # just to see the structure
+    if len(translated) > 0:
+        print("example translated product:", translated[0])
     print(f"Failed products: {len(failed_products)}.")  # just to see the structure
     if len(failed_products) > 0:
         print("example failed product:", failed_products[0])
@@ -779,6 +781,8 @@ def create_hungarian_products_initial():
     updated_emag_products, failed_products = asyncio.run(
         run_process_all(emag_products_created, all_emag_categories, lang="hu")
     )
+    updated_emag_products = [p for p in updated_emag_products if p is not None]
+    failed_products = [p for p in failed_products if p is not None]
     # save the translated products to a json file
     with open("updated_emag_products_hu.json", "w", encoding="utf-8") as f:
         json.dump(updated_emag_products, f, ensure_ascii=False, indent=4)
