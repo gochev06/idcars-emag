@@ -1,10 +1,11 @@
 import json
 import time
+import psutil
+import os
 
 import requests
 
 from app.logger import add_log
-from app.models import FitnessCategory, Mapping
 from app.services import const, util
 
 
@@ -495,6 +496,9 @@ def run_update_process(pause=1, batch_size=50, emag_url_ext="bg"):
     """
     Optimized version of the update process with streaming.
     """
+    process = psutil.Process(os.getpid())
+    mem_before = process.memory_info().rss
+    cpu_before = process.cpu_times().user
 
     add_log("Starting product update process...")
 
@@ -630,6 +634,10 @@ def run_update_process(pause=1, batch_size=50, emag_url_ext="bg"):
     add_log(
         f"Update process completed: {total_updates} successful updates, {len(failed_batches)} failed batches."
     )
+    mem_after = process.memory_info().rss
+    cpu_after = process.cpu_times().user
+    add_log(f"Memory used: {(mem_after - mem_before) / 1024 / 1024:.2f} MB")
+    add_log(f"CPU time used: {cpu_after - cpu_before:.2f} seconds")
 
     return {
         "fitness1_products_fetched": len(fitness1_products),
@@ -643,6 +651,9 @@ def run_update_romania_process(pause=1, batch_size=50, emag_url_ext="ro"):
     """
     Optimized version of the update process with streaming.
     """
+    process = psutil.Process(os.getpid())
+    mem_before = process.memory_info().rss
+    cpu_before = process.cpu_times().user
     from currency_converter import CurrencyConverter
 
     c = CurrencyConverter()
@@ -724,7 +735,7 @@ def run_update_romania_process(pause=1, batch_size=50, emag_url_ext="ro"):
                             2,
                         ),
                         "status": fitness1_product["available"],
-                        "vat_id": 6,
+                        "vat_id": 2002,
                     }
                 )
 
@@ -784,6 +795,10 @@ def run_update_romania_process(pause=1, batch_size=50, emag_url_ext="ro"):
     add_log(
         f"Update process completed: {total_updates} successful updates, {len(failed_batches)} failed batches."
     )
+    mem_after = process.memory_info().rss
+    cpu_after = process.cpu_times().user
+    add_log(f"Memory used: {(mem_after - mem_before) / 1024 / 1024:.2f} MB")
+    add_log(f"CPU time used: {cpu_after - cpu_before:.2f} seconds")
 
     return {
         "fitness1_products_fetched": len(fitness1_products),
@@ -797,6 +812,9 @@ def run_update_hungarian_process(pause=1, batch_size=50, emag_url_ext="hu"):
     """
     Optimized version of the update process with streaming.
     """
+    process = psutil.Process(os.getpid())
+    mem_before = process.memory_info().rss
+    cpu_before = process.cpu_times().user
     from currency_converter import CurrencyConverter
 
     c = CurrencyConverter()
@@ -878,7 +896,7 @@ def run_update_hungarian_process(pause=1, batch_size=50, emag_url_ext="hu"):
                             2,
                         ),
                         "status": fitness1_product["available"],
-                        "vat_id": 6,
+                        "vat_id": 2002,
                     }
                 )
 
@@ -938,6 +956,10 @@ def run_update_hungarian_process(pause=1, batch_size=50, emag_url_ext="hu"):
     add_log(
         f"Update process completed: {total_updates} successful updates, {len(failed_batches)} failed batches."
     )
+    mem_after = process.memory_info().rss
+    cpu_after = process.cpu_times().user
+    add_log(f"Memory used: {(mem_after - mem_before) / 1024 / 1024:.2f} MB")
+    add_log(f"CPU time used: {cpu_after - cpu_before:.2f} seconds")
 
     return {
         "fitness1_products_fetched": len(fitness1_products),
