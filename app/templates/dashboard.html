@@ -169,12 +169,34 @@
     //   });
     // });
 
-    // When you click the "Update" button, start polling
-    document.getElementById('updateBtn').addEventListener('click', function() {
+    // Update only status
+    document.getElementById('updateStatusBtn').addEventListener('click', function() {
       showSpinner(true);
       showAlert('Starting update...', 'info');
 
-      fetch('/api/update', {
+      fetch('/api/update-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pause: 1, batch_size: 50 })
+      })
+      .then(response => response.json())
+      .then(data => {
+          console.log('Update started:', data);
+          updateStatusInterval = setInterval(checkUpdateStatus, 5000);
+      })
+      .catch(error => {
+          showSpinner(false);
+          showAlert('Error starting update: ' + error, 'danger');
+          console.error('Error starting update:', error);
+      });
+    });
+
+    // Update only prices
+    document.getElementById('updatePriceBtn').addEventListener('click', function() {
+      showSpinner(true);
+      showAlert('Starting update...', 'info');
+
+      fetch('/api/update-price', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pause: 1, batch_size: 50 })
