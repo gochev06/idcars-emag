@@ -492,17 +492,14 @@ def run_create_process(pause=1, batch_size=50, emag_url_ext="bg"):
     }
 
 
-def run_update_process(pause=1, batch_size=50, emag_url_ext="bg"):
-    """
-    Optimized version of the update process with streaming.
-    """
+def _run_update_process(build_entry_func, pause=1, batch_size=50, emag_url_ext="bg"):
+    """Generic update process used by price and status updates."""
     process = psutil.Process(os.getpid())
     mem_before = process.memory_info().rss
     cpu_before = process.cpu_times().user
 
     add_log("Starting product update process...")
 
-    # Step 1: Fetch all Fitness1 products once
     fitness1_products = fetch_all_fitness1_products(
         api_url=const.FITNESS1_API_URL, api_key=const.FITNESS1_API_KEY
     )
@@ -512,18 +509,15 @@ def run_update_process(pause=1, batch_size=50, emag_url_ext="bg"):
 
     add_log(f"Fetched {len(fitness1_products)} Fitness1 products.")
 
-    # Create a lookup table for Fitness1 products by barcode
     fitness1_index = {product["barcode"]: product for product in fitness1_products}
 
-    # Step 2: Stream EMAG products page by page
     page = 1
-    items_per_page = 100  # or whatever you want
+    items_per_page = 100
     total_emag_products = 0
     total_updates = 0
     failed_batches = []
 
     while True:
-        # Fetch one page of EMAG products
         payload = {"currentPage": page, "itemsPerPage": items_per_page}
         response = requests.post(
             url=util.build_url(
@@ -557,31 +551,22 @@ def run_update_process(pause=1, batch_size=50, emag_url_ext="bg"):
         total_emag_products += len(emag_products)
         add_log(f"Fetched {len(emag_products)} EMAG products on page {page}.")
 
-        # Map EMAG products to Fitness1 products
         update_batch = []
         for emag_product in emag_products:
             ean_list = emag_product.get("ean", [])
             if not ean_list:
-                continue  # skip products without EAN
+                continue
 
             barcode = ean_list[0]
             fitness1_product = fitness1_index.get(barcode)
 
             if fitness1_product:
-                # Build update entry
-                update_batch.append(
-                    {
-                        "id": emag_product["id"],
-                        "sale_price": fitness1_product["regular_price"],
-                        "status": fitness1_product["available"],
-                        "vat_id": 6,
-                    }
-                )
+                entry = build_entry_func(emag_product, fitness1_product)
+                if entry:
+                    update_batch.append(entry)
 
-        # Split into smaller batches
         batched_updates = util.split_list(update_batch, batch_size)
 
-        # Send each batch
         for i, batch in enumerate(batched_updates):
             if not batch:
                 continue
@@ -629,7 +614,7 @@ def run_update_process(pause=1, batch_size=50, emag_url_ext="bg"):
             else:
                 total_updates += len(batch)
 
-        page += 1  # go to next page
+        page += 1
 
     add_log(
         f"Update process completed: {total_updates} successful updates, {len(failed_batches)} failed batches."
@@ -645,6 +630,59 @@ def run_update_process(pause=1, batch_size=50, emag_url_ext="bg"):
         "updated_entries": total_updates,
         "failed_updates": failed_batches,
     }
+
+
+def run_update_process(pause=1, batch_size=50, emag_url_ext="bg"):
+    """Update both price and status for products."""
+
+    def build_entry(emag_product, fitness1_product):
+        return {
+            "id": emag_product["id"],
+            "sale_price": fitness1_product["regular_price"],
+            "status": fitness1_product["available"],
+            "vat_id": 6,
+        }
+
+    return _run_update_process(build_entry, pause, batch_size, emag_url_ext)
+
+
+def run_update_status_process(pause=1, batch_size=50, emag_url_ext="bg"):
+    """Update only the status field for products."""
+
+    def build_entry(emag_product, fitness1_product):
+        return {
+            "id": emag_product["id"],
+            "status": fitness1_product["available"],
+        }
+
+    return _run_update_process(build_entry, pause, batch_size, emag_url_ext)
+
+
+def run_update_price_process(pause=1, batch_size=50, emag_url_ext="bg"):
+    """Update only the price for products."""
+
+    def build_entry(emag_product, fitness1_product):
+        return {
+            "id": emag_product["id"],
+            "sale_price": fitness1_product["regular_price"],
+            "vat_id": 6,
+        }
+
+    return _run_update_process(build_entry, pause, batch_size, emag_url_ext)
+
+
+def run_update_combined_process(pause=1, batch_size=50, emag_url_ext="bg"):
+    """Update both price and status for products."""
+
+    def build_entry(emag_product, fitness1_product):
+        return {
+            "id": emag_product["id"],
+            "sale_price": fitness1_product["regular_price"],
+            "status": fitness1_product["available"],
+            "vat_id": 6,
+        }
+
+    return _run_update_process(build_entry, pause, batch_size, emag_url_ext)
 
 
 def run_update_romania_process(pause=1, batch_size=50, emag_url_ext="ro"):
