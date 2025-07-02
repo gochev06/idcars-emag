@@ -213,6 +213,28 @@
       });
     });
 
+    // Update both status and prices
+    document.getElementById('updateBothBtn').addEventListener('click', function() {
+      showSpinner(true);
+      showAlert('Starting update...', 'info');
+
+      fetch('/api/update-both', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pause: 1, batch_size: 50 })
+      })
+      .then(response => response.json())
+      .then(data => {
+          console.log('Update started:', data);
+          updateStatusInterval = setInterval(checkUpdateStatus, 5000);
+      })
+      .catch(error => {
+          showSpinner(false);
+          showAlert('Error starting update: ' + error, 'danger');
+          console.error('Error starting update:', error);
+      });
+    });
+
     // When you click the "Update" button, start polling
     document.getElementById('updateRomaniaBtn').addEventListener('click', function() {
       showSpinner(true);

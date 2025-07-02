@@ -671,6 +671,20 @@ def run_update_price_process(pause=1, batch_size=50, emag_url_ext="bg"):
     return _run_update_process(build_entry, pause, batch_size, emag_url_ext)
 
 
+def run_update_combined_process(pause=1, batch_size=50, emag_url_ext="bg"):
+    """Update both price and status for products."""
+
+    def build_entry(emag_product, fitness1_product):
+        return {
+            "id": emag_product["id"],
+            "sale_price": fitness1_product["regular_price"],
+            "status": fitness1_product["available"],
+            "vat_id": 6,
+        }
+
+    return _run_update_process(build_entry, pause, batch_size, emag_url_ext)
+
+
 def run_update_romania_process(pause=1, batch_size=50, emag_url_ext="ro"):
     """
     Optimized version of the update process with streaming.
