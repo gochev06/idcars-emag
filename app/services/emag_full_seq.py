@@ -1005,3 +1005,63 @@ def run_update_hungarian_process(pause=1, batch_size=50, emag_url_ext="hu"):
         "updated_entries": total_updates,
         "failed_updates": failed_batches,
     }
+
+
+def run_update_status_romania_process(pause=1, batch_size=50):
+    """Update only the status field for Romania products."""
+
+    def build_entry(emag_product, fitness1_product):
+        return {
+            "id": emag_product["id"],
+            "status": fitness1_product["available"],
+        }
+
+    return _run_update_process(build_entry, pause, batch_size, "ro")
+
+
+def run_update_price_romania_process(pause=1, batch_size=50):
+    """Update only the price for Romania products."""
+    from currency_converter import CurrencyConverter
+
+    c = CurrencyConverter()
+
+    def build_entry(emag_product, fitness1_product):
+        return {
+            "id": emag_product["id"],
+            "sale_price": round(
+                c.convert(fitness1_product["regular_price"], "BGN", "RON"), 2
+            ),
+            "vat_id": 2002,
+        }
+
+    return _run_update_process(build_entry, pause, batch_size, "ro")
+
+
+def run_update_status_hungarian_process(pause=1, batch_size=50):
+    """Update only the status field for Hungarian products."""
+
+    def build_entry(emag_product, fitness1_product):
+        return {
+            "id": emag_product["id"],
+            "status": fitness1_product["available"],
+        }
+
+    return _run_update_process(build_entry, pause, batch_size, "hu")
+
+
+def run_update_price_hungarian_process(pause=1, batch_size=50):
+    """Update only the price for Hungarian products."""
+    from currency_converter import CurrencyConverter
+
+    c = CurrencyConverter()
+
+    def build_entry(emag_product, fitness1_product):
+        return {
+            "id": emag_product["id"],
+            "sale_price": round(
+                c.convert(fitness1_product["regular_price"], "BGN", "HUF"), 2
+            ),
+            "vat_id": 2002,
+        }
+
+    return _run_update_process(build_entry, pause, batch_size, "hu")

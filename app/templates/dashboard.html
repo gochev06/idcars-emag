@@ -235,10 +235,54 @@
       });
     });
 
-    // When you click the "Update" button, start polling
-    document.getElementById('updateRomaniaBtn').addEventListener('click', function() {
+    // Update Romania status
+    document.getElementById('updateRomaniaStatusBtn').addEventListener('click', function() {
       showSpinner(true);
-      showAlert('Starting update...', 'info');
+      showAlert('Starting Romania status update...', 'info');
+
+      fetch('/api/update/ro/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pause: 1, batch_size: 50 })
+      })
+      .then(response => response.json())
+      .then(data => {
+          console.log('Update started:', data);
+          updateStatusInterval = setInterval(checkUpdateStatus, 5000);
+      })
+      .catch(error => {
+          showSpinner(false);
+          showAlert('Error starting update: ' + error, 'danger');
+          console.error('Error starting update:', error);
+      });
+    });
+
+    // Update Romania prices
+    document.getElementById('updateRomaniaPriceBtn').addEventListener('click', function() {
+      showSpinner(true);
+      showAlert('Starting Romania price update...', 'info');
+
+      fetch('/api/update/ro/price', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pause: 1, batch_size: 50 })
+      })
+      .then(response => response.json())
+      .then(data => {
+          console.log('Update started:', data);
+          updateStatusInterval = setInterval(checkUpdateStatus, 5000);
+      })
+      .catch(error => {
+          showSpinner(false);
+          showAlert('Error starting update: ' + error, 'danger');
+          console.error('Error starting update:', error);
+      });
+    });
+
+    // Update Romania both
+    document.getElementById('updateRomaniaBothBtn').addEventListener('click', function() {
+      showSpinner(true);
+      showAlert('Starting Romania update...', 'info');
 
       fetch('/api/update/ro', {
           method: 'POST',
@@ -257,10 +301,54 @@
       });
     });
 
-
-    document.getElementById('updateHungaryBtn').addEventListener('click', function() {
+    // Update Hungary status
+    document.getElementById('updateHungaryStatusBtn').addEventListener('click', function() {
       showSpinner(true);
-      showAlert('Starting update...', 'info');
+      showAlert('Starting Hungary status update...', 'info');
+
+      fetch('/api/update/hu/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pause: 1, batch_size: 50 })
+      })
+      .then(response => response.json())
+      .then(data => {
+          console.log('Update started:', data);
+          updateStatusInterval = setInterval(checkUpdateStatus, 5000);
+      })
+      .catch(error => {
+          showSpinner(false);
+          showAlert('Error starting update: ' + error, 'danger');
+          console.error('Error starting update:', error);
+      });
+    });
+
+    // Update Hungary prices
+    document.getElementById('updateHungaryPriceBtn').addEventListener('click', function() {
+      showSpinner(true);
+      showAlert('Starting Hungary price update...', 'info');
+
+      fetch('/api/update/hu/price', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pause: 1, batch_size: 50 })
+      })
+      .then(response => response.json())
+      .then(data => {
+          console.log('Update started:', data);
+          updateStatusInterval = setInterval(checkUpdateStatus, 5000);
+      })
+      .catch(error => {
+          showSpinner(false);
+          showAlert('Error starting update: ' + error, 'danger');
+          console.error('Error starting update:', error);
+      });
+    });
+
+    // Update Hungary both
+    document.getElementById('updateHungaryBothBtn').addEventListener('click', function() {
+      showSpinner(true);
+      showAlert('Starting Hungary update...', 'info');
 
       fetch('/api/update/hu', {
           method: 'POST',
