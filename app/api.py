@@ -425,7 +425,9 @@ def api_update_romania_status():
             update_job_status["running"] = True
             update_job_status["last_message"] = "Update process started."
 
-            summary = run_update_status_romania_process(pause=pause, batch_size=batch_size)
+            summary = run_update_status_romania_process(
+                pause=pause, batch_size=batch_size
+            )
 
             update_job_status["running"] = False
             update_job_status["last_message"] = (
@@ -473,7 +475,9 @@ def api_update_romania_price():
             update_job_status["running"] = True
             update_job_status["last_message"] = "Update process started."
 
-            summary = run_update_price_romania_process(pause=pause, batch_size=batch_size)
+            summary = run_update_price_romania_process(
+                pause=pause, batch_size=batch_size
+            )
 
             update_job_status["running"] = False
             update_job_status["last_message"] = (
@@ -571,7 +575,9 @@ def api_update_hungary_status():
             update_job_status["running"] = True
             update_job_status["last_message"] = "Update process started."
 
-            summary = run_update_status_hungarian_process(pause=pause, batch_size=batch_size)
+            summary = run_update_status_hungarian_process(
+                pause=pause, batch_size=batch_size
+            )
 
             update_job_status["running"] = False
             update_job_status["last_message"] = (
@@ -619,7 +625,9 @@ def api_update_hungary_price():
             update_job_status["running"] = True
             update_job_status["last_message"] = "Update process started."
 
-            summary = run_update_price_hungarian_process(pause=pause, batch_size=batch_size)
+            summary = run_update_price_hungarian_process(
+                pause=pause, batch_size=batch_size
+            )
 
             update_job_status["running"] = False
             update_job_status["last_message"] = (
