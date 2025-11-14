@@ -99,6 +99,7 @@ Create a `.env` file in the project root to set your environment variables. For 
 
 ```env
 SECRET_KEY=your_secret_key_here
+LOGIN_KEY=your_login_key_here
 EMAG_API_KEY=your_emag_api_key_here
 FITNESS1_API_KEY=your_fitness1_api_key_here
 DATABASE_URL=sqlite:///app.db
@@ -115,8 +116,9 @@ load_dotenv()
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY")
-    EMAG_API_KEY = os.environ.get("EMAG_API_KEY")
-    FITNESS1_API_KEY = os.environ.get("FITNESS1_API_KEY")
+  EMAG_API_KEY = os.environ.get("EMAG_API_KEY")
+  FITNESS1_API_KEY = os.environ.get("FITNESS1_API_KEY")
+  LOGIN_KEY = os.environ.get("LOGIN_KEY")
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///app.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

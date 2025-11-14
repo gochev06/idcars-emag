@@ -11,6 +11,7 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY")
     EMAG_API_KEY = os.environ.get("EMAG_API_KEY")
     FITNESS1_API_KEY = os.environ.get("FITNESS1_API_KEY")
+    LOGIN_KEY = os.environ.get("LOGIN_KEY")
     # Additional configuration options can be added here
 
     # Database configuration
